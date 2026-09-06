@@ -72,6 +72,31 @@ async function currentVersion(page) {
 }
 
 /**
+ * Wait for the worker to catch up.
+ *
+ * Since assets are matched on the exact URL, a deploy reaches the user as soon
+ * as the network-first HTML names new ?v= assets - which is normally BEFORE the
+ * new worker has installed and swapped the cache. That ordering is the point of
+ * the design, so the worker's progress is polled rather than assumed to have
+ * happened by the time the app is already showing new code.
+ */
+async function waitForCacheName(page, want, timeoutMs = 8000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      const names = await page.evaluate(async () => caches.keys());
+      if (names.length === 1 && names[0] === want) return names[0];
+    } catch { /* mid-reload */ }
+    await sleep(250);
+  }
+  try {
+    return (await page.evaluate(async () => caches.keys()))[0];
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Relaunch until the new version is running, or give up.
  *
  * Polls to a deadline rather than sleeping a fixed time per relaunch: the
@@ -160,16 +185,51 @@ async function main() {
       () => getComputedStyle(document.documentElement)
         .getPropertyValue('--accent').trim()), '#00FF00');
 
-    check('old caches cleaned up', await page.evaluate(
-      async () => (await caches.keys()).length), 1);
-    check('and the surviving cache is the new one', await page.evaluate(
+    // The worker still catches up and cleans house, just not necessarily before
+    // the app is already running the new code.
+    check('the worker catches up and leaves one cache',
+      await waitForCacheName(page, `fasting-v${NEW}`), `fasting-v${NEW}`);
+
+    console.log('\n  A deploy lands even if the worker never updates');
+    /*
+     * The real-world failure, reproduced. On an iPhone the worker stopped
+     * updating, and because assets were matched with ignoreSearch the old
+     * script.js answered every request for script.js?v=NEW - so the app was
+     * pinned to a stale release permanently, however many times it relaunched.
+     *
+     * Here sw.js is left byte-identical, so no new worker can install. Only the
+     * HTML (network-first) and the asset it names change. The app must still
+     * end up running the new code.
+     */
+    const STUCK = '7.7.7';
+    for (const [file, from, to] of [
+      ['index.html', `?v=${NEW}`, `?v=${STUCK}`],
+      ['script.js', `APP_VERSION = '${NEW}'`, `APP_VERSION = '${STUCK}'`],
+    ]) {
+      const fp = path.join(ctx.root, file);
+      const before = await fsp.readFile(fp, 'utf8');
+      const after = before.split(from).join(to);
+      if (after === before) throw new Error(`stuck-worker edit missed ${file}`);
+      await fsp.writeFile(fp, after);
+    }
+    const swBefore = await fsp.readFile(path.join(ctx.root, 'sw.js'), 'utf8');
+
+    await page.goto(ctx.base, { waitUntil: 'networkidle2' });
+    await sleep(600);
+    check('the new script is served despite the stale worker',
+      await currentVersion(page), STUCK);
+    check('and the worker really did not change',
+      (await fsp.readFile(path.join(ctx.root, 'sw.js'), 'utf8')) === swBefore, true);
+    check('so the cache still carries the old worker\'s name', await page.evaluate(
       async () => (await caches.keys())[0]), `fasting-v${NEW}`);
+    check('and only that one exists', await page.evaluate(
+      async () => (await caches.keys()).length), 1);
 
     console.log('\n  The running version is visible in the app');
     // Without this the only way to tell a bug from a stale cache is guesswork.
     await page.evaluate(() => window.__ifTest.showView('settings'));
     check('Settings reports the build that is running', await page.evaluate(
-      () => document.getElementById('app-version').textContent), NEW);
+      () => document.getElementById('app-version').textContent), STUCK);
 
     console.log('\n  The upgraded app still works offline');
     ctx.state.offline = true;
@@ -177,7 +237,7 @@ async function main() {
     check('still loads with the network gone', await page.evaluate(
       () => !!document.querySelector('#timer-view.is-active')), true);
     check('and it is the new version that is cached', await page.evaluate(
-      () => window.__ifTest.APP_VERSION), NEW);
+      () => window.__ifTest.APP_VERSION), STUCK);
   } finally {
     await ctx.close();
   }

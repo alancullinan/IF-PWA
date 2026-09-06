@@ -8,7 +8,7 @@
 (function () {
   'use strict';
 
-  const APP_VERSION = '0.3.4';
+  const APP_VERSION = '0.3.5';
 
   // ---------------------------------------------------------------- storage
 
@@ -894,7 +894,10 @@
     window.addEventListener('load', async () => {
       let registration;
       try {
-        registration = await navigator.serviceWorker.register('sw.js');
+        // updateViaCache:'none' so the worker script itself is never answered
+        // from the HTTP cache. GitHub Pages serves with a max-age, and a worker
+        // fetched from cache looks unchanged, so no update is ever detected.
+        registration = await navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' });
       } catch (err) {
         console.error('Service worker registration failed:', err);
         return;

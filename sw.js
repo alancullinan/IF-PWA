@@ -16,15 +16,21 @@
 
 // Bump together with the ?v= strings in index.html on every deploy. Neither
 // alone is enough: caches.match() keys on the full URL including the query.
-const CACHE_NAME = 'fasting-v0.3.4';
+const CACHE_NAME = 'fasting-v0.3.5';
+
+// The version the HTML asks for in its ?v= strings. Derived from CACHE_NAME so
+// the two cannot drift apart.
+const VERSION = CACHE_NAME.slice('fasting-v'.length);
 
 // './' and './index.html' are DISTINCT cache keys, and GitHub Pages serves the
 // bare directory URL from index.html, so both are precached.
 const PRECACHE = [
   './',
   './index.html',
-  './script.js',
-  './styles.css',
+  // Cached under the exact URLs the HTML requests, so an offline launch right
+  // after a deploy still finds them.
+  './script.js?v=' + VERSION,
+  './styles.css?v=' + VERSION,
   './manifest.json',
   './fonts/outfit.woff2',
   './icons/icon-72x72.png',
@@ -88,16 +94,23 @@ self.addEventListener('fetch', (event) => {
   }
 
   /*
-   * Assets are cache-first with ignoreSearch.
+   * Assets are cache-first, matched on the EXACT url - query string included.
    *
-   * The HTML requests script.js/styles.css with a ?v= cache-buster while the
-   * precache stores them bare; without ignoreSearch the precached copies never
-   * match and every launch goes to the network. Safe because a deploy ships a
-   * new CACHE_NAME, so activate() wipes these entries, and the navigation above
-   * guarantees the HTML itself is fresh.
+   * This used to pass ignoreSearch, which was a trap. The HTML is network-first
+   * so a deploy's new index.html arrives immediately, asking for
+   * script.js?v=NEW - but ignoreSearch matched that against the OLD bare
+   * script.js still in the cache, so the app kept running the previous release
+   * no matter how many times it was relaunched. The only escape was the worker
+   * itself updating and wiping the cache, and when that did not happen on a
+   * real iPhone the app was stuck for good.
+   *
+   * Matching exactly makes a version bump self-healing: a new ?v= simply misses
+   * the cache and is fetched, whatever the worker is doing. The cost is one
+   * network fetch per changed asset per deploy, which is unavoidable anyway -
+   * the file changed.
    */
   event.respondWith(
-    caches.match(request, { ignoreSearch: true }).then((cached) => {
+    caches.match(request).then((cached) => {
       if (cached) return cached;
       return fetch(request).then((response) => {
         if (!response || response.status !== 200 || response.type !== 'basic') {
