@@ -188,6 +188,227 @@
     });
   }
 
+  // ---------------------------------------------------------------- plans
+
+  const PLANS = [
+    { id: '12-12', label: '12:12', goalHours: 12 },
+    { id: '14-10', label: '14:10', goalHours: 14 },
+    { id: '16-8',  label: '16:8',  goalHours: 16 },
+    { id: '18-6',  label: '18:6',  goalHours: 18 },
+    { id: '20-4',  label: '20:4',  goalHours: 20 },
+    { id: 'omad',  label: 'OMAD',  goalHours: 23 },
+  ];
+
+  const planById = (id) => PLANS.find((p) => p.id === id) || PLANS[2];
+
+  /**
+   * Metabolic stages, by hours elapsed.
+   *
+   * These boundaries are approximate and vary a lot by person, last meal and
+   * activity - the commercial apps state them as fact, which is worth not
+   * copying. The copy says "usually" and "around" on purpose.
+   */
+  const STAGES = [
+    { fromHours: 0,  name: 'Fed',          note: 'Digesting your last meal' },
+    { fromHours: 4,  name: 'Post-meal',    note: 'Running on stored glucose' },
+    { fromHours: 12, name: 'Burning fat',  note: 'Ketosis usually begins near 16h' },
+    { fromHours: 16, name: 'Ketosis',      note: 'Roughly - it varies by person' },
+    { fromHours: 24, name: 'Deep fast',    note: 'Autophagy markers rise around here' },
+  ];
+
+  function stageFor(hours) {
+    let current = STAGES[0];
+    for (const stage of STAGES) if (hours >= stage.fromHours) current = stage;
+    return current;
+  }
+
+  // ---------------------------------------------------------------- time
+
+  const HOUR_MS = 3600000;
+
+  /** "13h 24m", or "42m" under an hour. Always floors: 59m is not yet an hour. */
+  function formatDuration(ms) {
+    const total = Math.max(0, Math.floor(ms / 60000));
+    const h = Math.floor(total / 60);
+    const m = total % 60;
+    return h > 0 ? h + 'h ' + String(m).padStart(2, '0') + 'm' : m + 'm';
+  }
+
+  /**
+   * Round an elapsed time down to the whole minute the UI actually shows.
+   *
+   * The remaining time must be derived from THIS, not from the raw elapsed
+   * time: flooring the two independently lets them disagree, so five hours
+   * into a sixteen-hour fast displayed "5h 00m" beside "10h 59m to go". Both
+   * numbers were individually right and the pair was visibly wrong.
+   */
+  function floorToMinute(ms) {
+    return Math.max(0, Math.floor(ms / 60000) * 60000);
+  }
+
+  /** Local wall clock, 24-hour. */
+  function formatClock(timestamp) {
+    const d = new Date(timestamp);
+    return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  }
+
+  // ---------------------------------------------------------------- fasts
+
+  function newId() {
+    return Date.now() + '-' + Math.floor(Math.random() * 1000000);
+  }
+
+  /** The one unfinished fast, or null. */
+  function activeFast() {
+    return appState.fasts.find((f) => f.endedAt === null) || null;
+  }
+
+  /**
+   * Elapsed milliseconds for a fast.
+   *
+   * DERIVED, never accumulated. This is the single most important line in the
+   * app: a fast runs 16-24+ hours across screen locks, backgrounding, force
+   * quits and reboots, and any counter we increment ourselves would drift or
+   * reset across all of those. Recomputing from the stored start timestamp is
+   * correct by construction - there is no state to corrupt.
+   */
+  function elapsedMs(fast, now) {
+    if (!fast) return 0;
+    return (fast.endedAt !== null ? fast.endedAt : (now || Date.now())) - fast.startedAt;
+  }
+
+  async function startFast() {
+    if (activeFast()) return null;
+    const plan = planById(appState.settings.activePlanId);
+    const fast = {
+      id: newId(),
+      startedAt: Date.now(),
+      endedAt: null,
+      goalHours: plan.goalHours,
+      planId: plan.id,
+      editedAt: null,
+    };
+    appState.fasts.push(fast);
+    await saveAppState('fasts');
+    startTicking();
+    renderTimer();
+    return fast;
+  }
+
+  async function endFast() {
+    const fast = activeFast();
+    if (!fast) return null;
+    fast.endedAt = Date.now();
+    await saveAppState('fasts');
+    stopTicking();
+    renderTimer();
+    return fast;
+  }
+
+  async function setActivePlan(planId) {
+    const plan = planById(planId);
+    appState.settings.activePlanId = plan.id;
+    await saveAppState('settings');
+    renderPresets();
+    renderTimer();
+    return plan;
+  }
+
+  // ---------------------------------------------------------------- render
+
+  function renderTimer() {
+    const fast = activeFast();
+    const plan = planById(appState.settings.activePlanId);
+
+    const nameEl = document.getElementById('fast-name');
+    const chipEl = document.getElementById('plan-chip');
+    const elapsedEl = document.getElementById('ring-elapsed');
+    const subEl = document.getElementById('ring-sub');
+    const startedEl = document.getElementById('started-at');
+    const endsEl = document.getElementById('ends-at');
+    const stageNameEl = document.getElementById('stage-name');
+    const stageNoteEl = document.getElementById('stage-note');
+    const btn = document.getElementById('fast-toggle-btn');
+
+    if (chipEl) chipEl.textContent = (fast ? planById(fast.planId) : plan).label;
+
+    if (!fast) {
+      if (nameEl) nameEl.textContent = 'Not fasting';
+      if (elapsedEl) elapsedEl.textContent = plan.goalHours + 'h';
+      if (subEl) subEl.textContent = 'Ready to start';
+      if (startedEl) startedEl.textContent = '--:--';
+      if (endsEl) endsEl.textContent = '--:--';
+      if (stageNameEl) stageNameEl.textContent = 'Not fasting';
+      if (stageNoteEl) stageNoteEl.textContent = 'Start a fast to track your stage';
+      if (btn) btn.textContent = 'Start fast';
+      setRingProgress(0);
+      return;
+    }
+
+    const goalMs = fast.goalHours * HOUR_MS;
+    const ms = elapsedMs(fast);
+    // What the big number says; the sub-line is derived from it so the two
+    // always add up to the goal exactly.
+    const shownMs = floorToMinute(ms);
+    const stage = stageFor(ms / HOUR_MS);
+
+    if (nameEl) nameEl.textContent = 'Fasting';
+    if (elapsedEl) elapsedEl.textContent = formatDuration(ms);
+    // Past the goal is a success, not an error: keep counting and say so.
+    if (subEl) {
+      subEl.textContent = shownMs >= goalMs
+        ? formatDuration(shownMs - goalMs) + ' past goal'
+        : formatDuration(goalMs - shownMs) + ' to go';
+    }
+    if (startedEl) startedEl.textContent = formatClock(fast.startedAt);
+    if (endsEl) endsEl.textContent = formatClock(fast.startedAt + goalMs);
+    if (stageNameEl) stageNameEl.textContent = stage.name;
+    if (stageNoteEl) stageNoteEl.textContent = stage.note;
+    if (btn) btn.textContent = 'End fast';
+    setRingProgress(ms / goalMs);
+  }
+
+  function renderPresets() {
+    const active = appState.settings.activePlanId;
+    document.querySelectorAll('.preset').forEach((el) => {
+      el.setAttribute('aria-pressed', String(el.dataset.plan === active));
+    });
+  }
+
+  // ---------------------------------------------------------------- ticking
+
+  let tickHandle = null;
+
+  /**
+   * Drive the DISPLAY only. Nothing here writes state, so a missed, throttled
+   * or coalesced tick - which iOS does freely to a backgrounded page - costs
+   * one late repaint and never a wrong duration.
+   */
+  function startTicking() {
+    stopTicking();
+    tickHandle = setInterval(renderTimer, 1000);
+  }
+
+  function stopTicking() {
+    if (tickHandle !== null) clearInterval(tickHandle);
+    tickHandle = null;
+  }
+
+  function wireTimer() {
+    const btn = document.getElementById('fast-toggle-btn');
+    if (btn) btn.addEventListener('click', () => (activeFast() ? endFast() : startFast()));
+
+    document.querySelectorAll('.preset').forEach((el) => {
+      el.addEventListener('click', () => setActivePlan(el.dataset.plan));
+    });
+
+    // Returning to a backgrounded app: repaint at once rather than waiting up
+    // to a second, since iOS will have stopped the interval entirely.
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) renderTimer();
+    });
+  }
+
   // ---------------------------------------------------------------- heatmap
 
   const HEAT_WEEKS = 13;
@@ -280,12 +501,18 @@
 
   async function init() {
     wireNav();
+    wireTimer();
     showView('timer');
     renderHeatmap(placeholderHeatLevels());
-    setRingProgress(13.4 / 16);
 
     StorageManager.requestPersistence();
     await loadAppState();
+
+    // Whatever was running before the app was closed picks straight back up:
+    // the fast's start timestamp is all the state there is.
+    renderPresets();
+    renderTimer();
+    if (activeFast()) startTicking();
   }
 
   registerServiceWorker();
@@ -307,7 +534,18 @@
     setRingProgress,
     renderHeatmap,
     StorageManager,
+    PLANS,
     appState,
+    startFast,
+    endFast,
+    activeFast,
+    elapsedMs,
+    setActivePlan,
+    renderTimer,
+    formatDuration,
+    formatClock,
+    floorToMinute,
+    stageFor,
     loadAppState,
     saveAppState,
     STORAGE_KEYS,
