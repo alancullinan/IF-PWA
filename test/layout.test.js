@@ -28,6 +28,7 @@ const DEVICES = [
   { name: 'iPhone SE',      w: 375, h: 667, top: 0,  bottom: 0 },
   { name: 'iPhone 13 mini', w: 375, h: 812, top: 50, bottom: 34 },
   { name: 'iPhone 15',      w: 390, h: 844, top: 59, bottom: 34 },
+  { name: 'iPhone 15 Pro',  w: 393, h: 852, top: 59, bottom: 34 },
   { name: 'iPhone 15 Pro Max', w: 430, h: 932, top: 59, bottom: 34 },
   { name: 'small Android',  w: 360, h: 740, top: 0,  bottom: 0 },
 ];
@@ -44,7 +45,27 @@ function checkBottomInsetOwnedOnce(check) {
   const css = fsSync.readFileSync(path.join(REPO, 'styles.css'), 'utf8');
   const bodyBlock = (css.match(/\nbody \{[^}]*\}/) || [''])[0];
   const tabbarBlock = (css.match(/\n\.tabbar \{[^}]*\}/) || [''])[0];
+  const viewBlock = (css.match(/\n\.view \{[^}]*\}/) || [''])[0];
+  const htmlBody = (css.match(/\nhtml, body \{[^}]*\}/) || [''])[0];
 
+  // The shell is pinned to the viewport. height:100% combined with a safe-area
+  // padding is what put 93pt under the tab bar on an iPhone 15 Pro: the 100%
+  // resolves against a box that already excludes the status bar, so the padding
+  // shifts content down without the height following.
+  check('the shell is pinned, not sized with height 100%',
+    /height:\s*100%/.test(htmlBody), false);
+  check('body is fixed to the viewport', /position:\s*fixed/.test(bodyBlock), true);
+  check('body cannot scroll itself', /overflow:\s*hidden/.test(bodyBlock), true);
+  check('body does not drag or bounce',
+    /overscroll-behavior:\s*none/.test(bodyBlock), true);
+
+  // Each inset is handled by the element that touches that edge, and only it.
+  check('body takes neither inset',
+    /env\(safe-area-inset/.test(bodyBlock), false);
+  check('the view takes the top inset',
+    /env\(safe-area-inset-top/.test(viewBlock), true);
+  check('the view contains its own scrolling',
+    /overscroll-behavior:\s*contain/.test(viewBlock), true);
   check('body does not also consume the bottom inset',
     /padding-bottom:\s*env\(safe-area-inset-bottom/.test(bodyBlock), false);
   check('the tab bar is what consumes it',
@@ -72,8 +93,9 @@ async function main() {
       console.log(`\n  ${d.name} (${d.w}x${d.h})`);
       await page.setViewport({ width: d.w, height: d.h });
       await page.goto(ctx.base, { waitUntil: 'networkidle2' });
+      // env() reports 0 here, so feed each inset to the element that owns it.
       await page.addStyleTag({ content:
-        `body{padding-top:${d.top}px!important}` +
+        `.view{padding-top:${32 + d.top}px!important}` +
         `.tabbar{margin-bottom:${Math.max(8, d.bottom)}px!important}` });
       await sleep(200);
 
