@@ -1,21 +1,13 @@
 {
   "artboards": [
-    { "file": "Main.dc.html",           "title": "A · Quiet Instrument", "x": 0,    "y": 0, "w": 390, "h": 844 },
-    { "file": "WarmEditorial.dc.html",  "title": "B · Warm Editorial",   "x": 470,  "y": 0, "w": 390, "h": 844 },
-    { "file": "BrutalistData.dc.html",  "title": "C · Data Brutalist",   "x": 940,  "y": 0, "w": 390, "h": 844 },
-    { "file": "SoftCircadian.dc.html",  "title": "D · Soft Circadian",   "x": 1410, "y": 0, "w": 390, "h": 844 }
+    { "file": "Main.dc.html",     "title": "Timer",    "x": 0,    "y": 0, "w": 390, "h": 844 },
+    { "file": "History.dc.html",  "title": "History",  "x": 470,  "y": 0, "w": 390, "h": 844 },
+    { "file": "Stats.dc.html",    "title": "Stats",    "x": 940,  "y": 0, "w": 390, "h": 844 },
+    { "file": "Settings.dc.html", "title": "Settings", "x": 1410, "y": 0, "w": 390, "h": 844 }
   ],
   "annotations": [
-    { "id": "brief", "x": 0, "y": -250, "w": 800,
-      "text": "Four directions for the fasting timer — the screen you'll look at most.\nSame content in all four, so you're judging the look and nothing else.\nPick one (or parts of several) and I'll build the remaining screens in it." },
-    { "id": "dir-a", "x": 0, "y": -140, "w": 390,
-      "text": "A · QUIET INSTRUMENT\nNear-black, one cool accent, thin ring, mono numerals. Reads like a measuring device — the fast is data, not a mood.\nTradeoff: safe. Handsome but won't surprise you." },
-    { "id": "dir-b", "x": 470, "y": -140, "w": 390,
-      "text": "B · WARM EDITORIAL\nWarm ink and cream, serif throughout, lowercase times. Fasting as a considered practice rather than a metric.\nTradeoff: serif numerals are slower to read at a glance." },
-    { "id": "dir-c", "x": 940, "y": -140, "w": 390,
-      "text": "C · DATA BRUTALIST\nHard edges, zero radius, acid accent, huge type. Everything on one screen, no scrolling, glanceable at arm's length.\nTradeoff: loud. Lives on your home screen all day." },
-    { "id": "dir-d", "x": 1410, "y": -140, "w": 390,
-      "text": "D · SOFT CIRCADIAN\nDeep indigo with a dawn-warm accent, rounded, generous. Closest to a modern health app.\nTradeoff: the most familiar — you've seen this shape before." }
+    { "id": "brief", "x": 0, "y": -170, "w": 800,
+      "text": "Soft Circadian, 24-hour clock throughout. Deep indigo ground, dawn-warm accent, rounded surfaces.\nPalette: bg #12142A · card #1A1D3C · text #EDEBFF · secondary #A9A6D8 · muted #8D8AC4 · accent #FFB37A. Type: Outfit 300-600.\nHeatmap uses a single-hue ramp from the accent, checked so a darker cell always means a shorter fast." }
   ],
   "launch": { "view": "canvas" }
 }

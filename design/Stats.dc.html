@@ -1,0 +1,114 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap">
+  <style>
+    body { margin: 0; font-family: 'Outfit', system-ui, sans-serif; }
+    a { color: #FFB37A; } a:hover { color: #FFC79C; }
+  </style>
+</helmet>
+
+<div style="width: 390px; height: 844px; background: #12142A; color: #EDEBFF; display: flex; flex-direction: column; box-sizing: border-box;">
+
+  <div style="padding: 30px 24px 0;">
+    <div style="font-size: 26px; font-weight: 500;">Stats</div>
+  </div>
+
+  <div style="padding: 20px 24px 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;">
+    <div style="background: #1A1D3C; border-radius: 20px; padding: 16px 18px; display: flex; flex-direction: column; gap: 4px;">
+      <div style="font-size: 13px; color: #A9A6D8;">Current streak</div>
+      <div style="font-size: 30px; font-weight: 500; line-height: 1.1;">12<span style="font-size: 15px; color: #A9A6D8; font-weight: 400;"> days</span></div>
+    </div>
+    <div style="background: #1A1D3C; border-radius: 20px; padding: 16px 18px; display: flex; flex-direction: column; gap: 4px;">
+      <div style="font-size: 13px; color: #A9A6D8;">Goal hit rate</div>
+      <div style="font-size: 30px; font-weight: 500; line-height: 1.1;">78<span style="font-size: 15px; color: #A9A6D8; font-weight: 400;">%</span></div>
+    </div>
+    <div style="background: #1A1D3C; border-radius: 20px; padding: 16px 18px; display: flex; flex-direction: column; gap: 4px;">
+      <div style="font-size: 13px; color: #A9A6D8;">30-day average</div>
+      <div style="font-size: 30px; font-weight: 500; line-height: 1.1;">15<span style="font-size: 15px; color: #A9A6D8; font-weight: 400;">h </span>48<span style="font-size: 15px; color: #A9A6D8; font-weight: 400;">m</span></div>
+    </div>
+    <div style="background: #1A1D3C; border-radius: 20px; padding: 16px 18px; display: flex; flex-direction: column; gap: 4px;">
+      <div style="font-size: 13px; color: #A9A6D8;">Longest fast</div>
+      <div style="font-size: 30px; font-weight: 500; line-height: 1.1;">22<span style="font-size: 15px; color: #A9A6D8; font-weight: 400;">h </span>10<span style="font-size: 15px; color: #A9A6D8; font-weight: 400;">m</span></div>
+    </div>
+  </div>
+
+  <div style="margin: 20px 24px 0; background: #1A1D3C; border-radius: 20px; padding: 18px;">
+    <div style="font-size: 15px; font-weight: 500;">Fasting hours</div>
+    <div style="font-size: 13px; color: #A9A6D8; margin-top: 3px;">Last 13 weeks</div>
+
+    <div style="display: flex; gap: 4px; margin-top: 16px;">
+      <sc-for list="{{weeks}}" as="week" hint-placeholder-count="13">
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <sc-for list="{{week.days}}" as="day" hint-placeholder-count="7">
+            <div style="width: 20px; height: 20px; border-radius: 5px; background: {{day.fill}};"></div>
+          </sc-for>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 6px; margin-top: 16px;">
+      <div style="font-size: 12px; color: #A9A6D8; margin-right: 2px;">None</div>
+      <div style="width: 14px; height: 14px; border-radius: 4px; background: #1D2043;"></div>
+      <div style="width: 14px; height: 14px; border-radius: 4px; background: #5A4551;"></div>
+      <div style="width: 14px; height: 14px; border-radius: 4px; background: #8C6659;"></div>
+      <div style="width: 14px; height: 14px; border-radius: 4px; background: #C08A63;"></div>
+      <div style="width: 14px; height: 14px; border-radius: 4px; background: #FFB37A;"></div>
+      <div style="font-size: 12px; color: #A9A6D8; margin-left: 2px;">20h+</div>
+    </div>
+  </div>
+
+  <div style="flex-grow: 1;"></div>
+
+  <div style="display: flex; justify-content: space-between; background: #1A1D3C; border-radius: 24px; padding: 12px 10px; margin: 0 24px 24px;">
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 5px; width: 66px; color: #8D8AC4;">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l2.5 2"/></svg>
+      <div style="font-size: 11px;">Timer</div>
+    </div>
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 5px; width: 66px; color: #8D8AC4;">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h10"/></svg>
+      <div style="font-size: 11px;">History</div>
+    </div>
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 5px; width: 66px; color: #FFB37A;">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 19V11M12 19V5M19 19v-6"/></svg>
+      <div style="font-size: 11px;">Stats</div>
+    </div>
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 5px; width: 66px; color: #8D8AC4;">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg>
+      <div style="font-size: 11px;">Settings</div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+<script data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    // Sequential ramp, one hue: empty -> full accent. Verified monotonic in
+    // luminance, so a darker cell always means a shorter fast.
+    const RAMP = ['#1D2043', '#5A4551', '#8C6659', '#C08A63', '#FFB37A'];
+    // Deterministic stand-in history so the artboard renders the same every time.
+    const seed = [0,3,4,2,4,4,0, 3,4,4,4,2,4,1, 4,4,3,4,4,0,4, 2,4,4,4,4,3,0,
+                  4,3,4,4,4,4,2, 0,4,4,3,4,4,4, 4,4,2,4,0,4,4, 3,4,4,4,4,4,1,
+                  4,2,4,4,3,4,4, 4,4,4,0,4,4,3, 2,4,4,4,4,4,4, 4,3,4,4,4,2,4,
+                  4,4,4,3,4,4,4];
+    const weeks = [];
+    for (let w = 0; w < 13; w++) {
+      const days = [];
+      for (let d = 0; d < 7; d++) {
+        days.push({ fill: RAMP[seed[w * 7 + d]] });
+      }
+      weeks.push({ days });
+    }
+    return { weeks };
+  }
+}
+</script>
+</body>
+</html>
