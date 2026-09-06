@@ -6,6 +6,11 @@ Purpose: survey what existing intermittent fasting (IF) apps actually do, work o
 which of it is buildable as a zero-dependency PWA, and identify what we can lift
 directly from MatchTrackerPWA.
 
+**Project context: this is a personal app, built for my own use.** It is not going to
+the App Store and is not competing with anything. Friends or family may be given the
+URL if they ask, but that is the whole distribution plan. Everything below is filtered
+through that: the survey is for *stealing good ideas*, not for positioning.
+
 ---
 
 ## 1. The competitive landscape
@@ -24,22 +29,23 @@ There is also a healthy open-source tier — FastTrack, Simple IF Tracker (alrea
 single-file offline PWA), NutriTrace, OpenNutriTracker — which proves the core is
 small and that "privacy-first, no account" is an established niche, not a novelty.
 
-### The gap worth aiming at
+### What the survey is actually good for
 
-The recurring complaint across reviews is **not** missing features — it is the
-business model wrapped around them:
+Since we are not competing with these apps, the pricing complaints and paywall
+patterns are irrelevant except as a reading of *which features people resent paying
+for* — which is a decent proxy for which features they actually use. The signal there
+is consistent: **people resent paying for the timer, the history and the stats.** That
+is the core, and it is the part that is small enough to just build.
 
-- Core timers paywalled behind annual subscriptions; history beyond ~3 days locked.
-- Apps advertising "free forever" then paywalling core functionality.
-- Onboarding questionnaires that withhold pricing until an email is captured.
-- Pricing spread from $0 to ~$420/year (DoFasting) for *the same core functionality*.
-- Generic AI coaching; self-contradicting weight-loss content.
-- High store rankings tracking marketing spend rather than satisfaction.
+Equally useful is the open-source tier — FastTrack, Simple IF Tracker (already a
+single-file offline PWA), NutriTrace, OpenNutriTracker. These are the closest
+comparables to what we are doing, and they confirm the scope is a weekend-to-a-fortnight
+project, not a product build.
 
-That is the opening: **the whole useful core of an IF app is a timer, a history,
-and a chart.** It is genuinely small. Everything expensive in these apps is content
-and coaching bolted on to justify a subscription. A free, offline, no-account PWA
-that does the core properly is a real product, not a compromised one.
+The rest of what the commercial apps sell — AI coaching, recipe libraries, community
+circles, article archives, onboarding funnels — is content and monetisation scaffolding.
+None of it applies. **This is the single biggest consequence of the project being
+personal: perhaps 70% of what these apps ship is not features at all.**
 
 ---
 
@@ -55,35 +61,37 @@ that does the core properly is a real product, not a compromised one.
 6. **Reminders** — "your eating window closes in 30 min", "you hit 16h". (See §3 — this
    is the one hard problem.)
 
-### Strong differentiators — cheap to build, high perceived value
+### Cheap to build, worth having
 7. **Metabolic stage timeline** — the single most-copied feature. Shows phase transitions
    as the fast progresses. Common marketed boundaries: fed/anabolic 0–4h, glycogen
    depletion 4–12h, lipolysis ~12h, ketosis ~16–18h, autophagy ~24h, deep fast 48h+.
    ⚠️ **Caveat worth respecting:** these hour boundaries are marketing-grade, not
    settled science. They vary hugely by individual, last meal, and activity, and
    autophagy in humans is measured by proxy markers, not directly. We should present
-   these as *approximate, typical* ranges with a plain disclaimer rather than as
-   personal biological fact. This is both honest and a differentiator, since the
-   commercial apps present them as certainties.
+   these as *approximate, typical* ranges rather than as personal biological fact —
+   the commercial apps state them as certainties and that is worth not copying, if only
+   so I don't end up believing my own UI.
 8. **Weight log + trend chart** — a few numbers and an SVG line. Very cheap.
 9. **Fasting journal** — mood / energy / hunger per fast, then surface the pattern
    ("you report low energy on fasts over 18h"). Zero charges for this; it's a form
    and a group-by.
-10. **Water tracker** — trivial counter, universally expected.
+10. **Water tracker** — trivial counter, in every commercial app. Cut (see §5).
 11. **Calendar heatmap** — GitHub-contributions-style month view of fasting adherence.
     Extremely legible, very cheap.
-12. **Share card** — canvas-generated image of a completed fast for social. **We have
-    already built exactly this in MatchTracker** (see §4).
+12. **Share card** — canvas-generated image of a completed fast. MatchTracker already
+    has this code (see §4), but it exists to drive social sharing, so it is cut for a
+    personal build. Noted here because the port would be near-free if that changes.
 
-### Deliberately out of scope (at least for v1)
-- **Food/calorie logging** — needs a food database, an ongoing licence cost, and it is
-  a different app. Zero's own weakness is that people bounce to MyFitnessPal; we should
-  not pretend to solve it badly.
-- **AI coaching** — needs a backend, an API key, and running costs, which forces the
-  subscription model we are explicitly avoiding. Also the most-criticised feature.
-- **Community / social circles** — needs accounts, a server, and moderation.
+### Deliberately out of scope
+- **Food/calorie logging** — needs a food database and an ongoing licence cost, and it
+  is a different app.
+- **AI coaching** — needs a backend and running costs. Also the most-criticised feature
+  in every review set.
+- **Community / social circles** — needs accounts and a server. Meaningless for one user.
 - **Wearable & Health app sync** — not possible from a PWA (see §3).
-- **Recipes / article library** — content work, not engineering; adds bulk not value.
+- **Recipes / article library** — content work, not engineering.
+- **Onboarding flow** — I already know what 16:8 means. A first-run default and a
+  settings screen is the whole of it.
 
 ---
 
@@ -103,11 +111,11 @@ This is the section that decides the product's shape.
 - **Export/import backup**: same JSON share-sheet approach as MatchTracker.
 - **Share cards**: canvas → blob → `navigator.share({ files })`.
 
-### ⚠️ The hard problem: notifications
-This is the one genuine functional gap versus native, and it needs a decision.
+### ⚠️ Notifications — the one real gap, and why it stops mattering
+This is the only genuine functional gap versus a native app.
 
 - iOS supports web push for PWAs **only** when installed to the Home Screen (iOS 16.4+).
-  Fine — our users will install it.
+  Fine — I would install it anyway.
 - **There is no way to schedule a local notification from a PWA.** The Notification
   Triggers API was never shipped by Safari. Safari supports *push* (server-sent), not
   *local scheduled* notifications. So "remind me at 8pm when my eating window closes"
@@ -115,24 +123,26 @@ This is the one genuine functional gap versus native, and it needs a decision.
 - **EU status — corrected:** several 2026 articles still claim Apple removed standalone
   PWA support in the EU under the DMA. **This is out of date.** Apple announced the
   reversal on 1 March 2024 and Home Screen web apps (and therefore web push) continued
-  to work in the EU from iOS 17.4. Relevant to us directly, given MatchTracker's
-  Irish user base.
+  to work in the EU from iOS 17.4. Relevant directly, since I am in Ireland.
 
-**Three options, in order of my preference:**
+**For a personal app, the calculus changes completely.** Standing up a VAPID push
+server, with keys and hosting, to send reminders to exactly one person is absurd.
+The realistic options are:
 
-- **(a) No push in v1.** Ship notification-free. In-app, the timer is always correct and
-  the stage timeline is visible whenever the app is open. Many users of the open-source
-  trackers live happily without reminders. Zero engineering cost, zero running cost,
-  keeps the "no account, no server" promise intact.
-- **(b) Foreground-only notifications.** Use the Notification API while the page is
-  alive to fire milestone alerts ("16h reached") when the app is open or recently
-  backgrounded. Cheap, partial, slightly unreliable — but honest if labelled as such.
-- **(c) A minimal push server.** A tiny VAPID web-push endpoint holding only a
-  subscription object and a scheduled time. This buys real reminders but breaks the
-  no-backend property and introduces hosting, keys, and a privacy story. Worth doing
-  **only** if reminders prove to be the top user request after v1.
+- **(a) No push. Use the phone's own Reminders/Clock app.** A repeating daily alarm at
+  the time your eating window opens and closes costs nothing, is more reliable than
+  anything we could build, and needs zero code. For a fixed schedule like 16:8 — where
+  the reminder times are the *same every day* — this is not a workaround, it is simply
+  the better answer. **This is my recommendation.**
+- **(b) Foreground-only milestone alerts.** Use the Notification API while the page is
+  alive, so opening the app mid-fast can surface "16h reached". Cheap, partial, and
+  worth doing only if it turns out to be missed.
+- **(c) A push server.** Not worth it for one user. Revisit only if the app ends up
+  being shared and someone actually asks.
 
-Recommendation: **(a) for v1, (b) as a fast follow, (c) only on evidence.**
+This effectively **removes the biggest open question from the project**. The one
+genuine PWA limitation is neatly sidestepped by the fact that a personal user can
+just set an alarm.
 
 ### ❌ Not possible from a PWA
 - **Apple HealthKit / Health Connect sync.** HealthKit has no backend API and no web
@@ -195,20 +205,43 @@ its scar tissue tells us which bugs to not write again.
 
 ## 5. Suggested v1 scope
 
-A defensible, buildable MVP:
+Reduced for personal use — the cuts are all things that only made sense for an audience.
 
+**Build:**
 1. Big timer with progress ring; start/stop; current plan shown.
 2. Plan presets (12:12, 14:10, 16:8, 18:6, 20:4, OMAD) + custom hours.
-3. Edit start/end time of the current or a past fast.
-4. Metabolic stage timeline with an honest "approximate" disclaimer.
-5. History list + calendar heatmap.
-6. Stats: current streak, longest streak, 7/30-day averages, goal-completion rate.
-7. Weight log with a trend line.
-8. Post-fast journal: mood, energy, hunger, free-text note.
-9. Export / import JSON backup with staleness prompt.
-10. Share card for a completed fast.
+3. **Edit start/end times.** The most important feature after the timer, because
+   forgetting to hit start is the normal case, not the edge case.
+4. History list + calendar heatmap.
+5. Stats: current streak, longest fast, 7/30-day averages, goal-completion rate.
+6. Weight log with a trend line.
+7. Export / import JSON backup.
 
-Deferred: water tracking, push reminders, food logging, anything requiring a server.
+**Probably build, cheaply:**
+8. Metabolic stage timeline. Still the nicest thing to look at mid-fast. One honest
+   line noting the hour boundaries are approximate — for my own benefit, not as a
+   disclaimer to users.
+9. Post-fast journal (mood / energy / hunger / note) — worth it only if I would
+   actually fill it in. Easy to add later; the data model leaves room.
+
+**Cut from the earlier list:**
+- **Share cards.** Built for social virality. I am not posting my fasts anywhere.
+  (The MatchTracker canvas code stays available if this ever changes.)
+- **Water tracking.** Present in every commercial app because it pads a feature list.
+  Skip unless genuinely wanted.
+- **Onboarding.** Sensible defaults instead.
+
+### Testing
+
+Keep two of MatchTracker's three suites — `sw-upgrade` and `storage`. It is tempting to
+skip tests on a personal project, but both suites exist because of bugs that were
+**invisible on a fresh install and only appeared on a device that already had data**:
+a stale service worker serving last month's app forever, and a storage bug that
+silently ate recent records. Those are exactly the bugs that are most maddening on an
+app you rely on daily and cannot debug from a user report. They port over nearly free.
+
+`backup.test.js` is lower priority but the export path is still the only thing standing
+between a lost phone and a lost history, so it is worth having eventually.
 
 ### Data model sketch
 ```javascript
@@ -230,22 +263,28 @@ Deferred: water tracking, push reminders, food logging, anything requiring a ser
 { id, at: 1757155200000, kg: 78.4 }
 
 // Settings
-{ activePlanId, units: "metric" | "imperial", lastBackupAt, stageDisclaimerAck }
+{ activePlanId, lastBackupAt }
 ```
 Storage keys, mirroring MatchTracker: `fasts`, `weights`, `settings`, `lastBackupAt`.
 
+Metric only — no units toggle. I can add one if anyone who wants pounds ever asks.
+
 ---
 
-## 6. Open questions for you
+## 6. Decisions taken, and what is left
 
-1. **Notifications** — is shipping v1 without reminders acceptable? It is the single
-   biggest fork in the road, because option (c) means running a server and gives up
-   the no-account property.
-2. **Domain/hosting** — same pattern as `matchtracker.club` (GitHub Pages + CNAME at a
-   domain root, since the SW precaches root-absolute paths)?
-3. **Audience** — personal/family use, or a public app aimed at the paywall-fatigued
-   crowd? This changes how much polish onboarding and the share card deserve.
-4. **Units** — metric only, or metric + imperial from day one?
+Resolved by the project being personal:
+- **Notifications** — none in v1; use the phone's Reminders app. (§3)
+- **Units** — metric only.
+- **Share cards, water tracking, onboarding** — cut.
+- **Privacy/accounts** — moot. No server, no account, data never leaves the device.
+
+Still genuinely open:
+1. **Hosting.** Same pattern as `matchtracker.club` — GitHub Pages with a `CNAME` at a
+   domain root? The service worker precaches root-absolute paths, so a subpath deploy
+   (`alancullinan.github.io/IF-PWA/`) needs those made relative first. Worth deciding
+   before the first commit of `sw.js`, not after.
+2. **Journal.** In or out for v1 — depends on whether I would actually use it.
 
 ---
 
