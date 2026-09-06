@@ -175,7 +175,7 @@ Storage keys: `fasts`, `weights`, `settings`, `lastBackupAt`.
 ```javascript
 // fasts
 { id, startedAt, endedAt: null while running, goalHours, planId, editedAt }
-// weights (not yet surfaced in the UI)
+// weights (stored and backed up, deliberately never surfaced - see "Not built")
 { id, at, kg }
 // settings
 { activePlanId }
@@ -200,9 +200,22 @@ because the hour boundaries are typical rather than measured and the app should
 not imply otherwise. Icons are inline SVG, never emoji. `tools/make-icons.py`
 generates the app icons with no image library.
 
-## Not built
+## Not built, and why
 
-The weight logging UI is the only unbuilt phase; `docs/PLAN.md` has it, and the
-`weights` store and its data shape already exist. Deliberately out of scope for
-good: notifications (impossible to schedule from a PWA — use the
-phone's own alarms), food logging, AI coaching, accounts, Health app sync.
+**The app is feature-complete.** Nothing is pending.
+
+The one test that settled the remaining ideas: **does the app create the data,
+or transcribe it?** The timer works because the app is the source — you press
+start and stop, and nothing else knows. A step count and a Withings weight are
+already recorded, automatically and more accurately, by something else; entering
+them here would be nightly transcription, and transcription lapses. A half-filled
+history is worse than none, because a gap and a zero look identical.
+
+So both are out for good: step tracking, and the weight logging UI that earlier
+plans carried. The `weights` store and its shape stay in the storage and backup
+layers — inert, a few lines, and harmless — rather than being unpicked from
+code that works.
+
+Deliberately out of scope for good: notifications (impossible to schedule from a
+PWA — use the phone's own alarms), food logging, AI coaching, accounts, Health
+app sync.

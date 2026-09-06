@@ -196,10 +196,19 @@ bucketing* is local and must be done deliberately.
 
 ---
 
-## 6. Weight log
+## 6. Weight log — DROPPED
 
-Manual entry only — HealthKit is unreachable from the web (see `RESEARCH.md` §3).
-List of entries plus an SVG trend line. Metric only.
+Cut, not deferred. HealthKit is unreachable from the web, so this could only ever
+be manual — and a Withings scale already records weight automatically. That makes
+it transcription rather than capture, and transcription lapses; a half-filled
+weight history is worse than none.
+
+The same reasoning ruled out a manual step tracker. The test that decides it:
+does the app CREATE the data, or copy it from something that already has it? The
+timer creates. A scale and a pedometer do not.
+
+The `weights` store stays in storage and backup - inert and harmless - rather
+than being unpicked from working code.
 
 ---
 
@@ -229,10 +238,11 @@ measurement. Not a legal disclaimer - just so I don't end up believing my own UI
 | 3 | History + time editing | Can fix a forgotten start |
 | 4 | **Export / import** | **Round-trips a backup onto a different device** |
 | 5 | Stats + heatmap | — |
-| 6 | Weight log | — |
+| 6 | Weight log | Dropped |
 | 7 | Stage timeline | Done |
 
 Phases 0-4 are the app. Everything after is worth having but not load-bearing.
+All shipped except phase 6, which was cut on the reasoning above.
 
 Phase 4's gate is deliberately a *different device*, not a round-trip on the same one:
 an export that only reimports where it was written has not been tested against the
