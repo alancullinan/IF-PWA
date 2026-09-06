@@ -136,7 +136,47 @@ fasts rather than silently allowing them.
 
 ---
 
-## 4. Stats and heatmap
+## 4. Backup — export and import
+
+**Promoted from last to first-after-usable.** Export is the only thing that survives a
+device change, and it was originally scheduled behind four features that are merely
+nice to look at. That was the wrong order: stats and heatmaps are worthless if the
+underlying history did not make it onto the new phone.
+
+It cannot come earlier than this — there has to be data before there is anything to
+export — but it comes the moment the app is genuinely usable.
+
+Port `DataManager` from MatchTracker: JSON export via the share sheet with an
+`<a download>` fallback, plus import.
+
+Two rules that came from real bugs and must survive the port:
+- **`navigator.share({ files })` only.** Never pass `title` or `text` — iOS "Save to
+  Files" materialises string fields as a stray extra document, leaving a file named
+  "Text" beside every backup.
+- **A dismissed share sheet is not a backup.** `navigator.share()` rejects with
+  `AbortError` when the sheet is dismissed; recording that as a backup would make the
+  staleness indicator claim a backup that never left the device.
+
+**Import matters as much as export here.** A phone change is export on the old device,
+import on the new one — a one-way export is half a feature. The new device starts
+empty, so the simple "replace everything behind a confirmation" import noted earlier
+is exactly the right shape for the migration case; MatchTracker's three-way
+new/identical/conflicting analysis solves a problem (two devices diverging) that a
+single-user single-device app does not have.
+
+**Export is the only real backup.** iOS evicts storage for sites unused ~7 days,
+`navigator.storage.persist()` does not fully prevent it, and nothing in a PWA's
+IndexedDB reliably follows you to a new handset. The app should surface
+`lastBackupAt` and nag when it goes stale.
+
+**Steer the destination.** The share sheet will happily send the backup to a chat app,
+where it is one conversation-clear away from gone. The copy should point at "Save to
+Files" / iCloud Drive, which is the option that is actually reachable from the next
+phone.
+
+---
+
+## 5. Stats and heatmap
 
 - Current streak, longest fast, 7/30-day average duration, goal-completion rate.
 - Calendar heatmap, GitHub-contributions style. Very cheap, very legible.
@@ -149,42 +189,20 @@ bucketing* is local and must be done deliberately.
 
 ---
 
-## 5. Weight log
+## 6. Weight log
 
 Manual entry only — HealthKit is unreachable from the web (see `RESEARCH.md` §3).
 List of entries plus an SVG trend line. Metric only.
 
 ---
 
-## 6. Metabolic stage timeline
+## 7. Metabolic stage timeline
 
 Marks on the timer showing the approximate phase: fed 0-4h, glycogen depletion 4-12h,
 lipolysis ~12h, ketosis ~16-18h, autophagy ~24h.
 
 One quiet line of copy noting these are typical approximations, not a personal
 measurement. Not a legal disclaimer — just so I don't end up believing my own UI.
-
----
-
-## 7. Backup
-
-Port `DataManager` from MatchTracker: JSON export via the share sheet with
-`<a download>` fallback, plus import.
-
-Two rules that came from real bugs and must survive the port:
-- **`navigator.share({ files })` only.** Never pass `title` or `text` — iOS "Save to
-  Files" materialises string fields as a stray extra document.
-- **A dismissed share sheet is not a backup.** `AbortError` must not set `lastBackupAt`,
-  or the staleness indicator will claim a backup that never left the device.
-
-The import conflict-resolution machinery (three-way new/identical/conflicting) is
-probably over-engineered for one device with one data source. Start with a simple
-"replace everything" import behind a confirmation, and port the full analysis only if
-it is ever needed.
-
-**Export is the only real backup.** iOS evicts storage for sites unused ~7 days and
-`navigator.storage.persist()` does not fully prevent it. The app should nag when
-`lastBackupAt` gets stale.
 
 ---
 
@@ -196,12 +214,16 @@ it is ever needed.
 | 1 | Storage + tests | `sw-upgrade` and `storage` suites pass |
 | 2 | Timer, plans, progress ring | Survives a force-quit mid-fast |
 | 3 | History + time editing | Can fix a forgotten start |
-| 4 | Stats + heatmap | — |
-| 5 | Weight log | — |
-| 6 | Stage timeline | — |
-| 7 | Export/import | Round-trips a backup |
+| 4 | **Export / import** | **Round-trips a backup onto a different device** |
+| 5 | Stats + heatmap | — |
+| 6 | Weight log | — |
+| 7 | Stage timeline | — |
 
-Phases 0-3 are the app. Everything after is worth having but not load-bearing.
+Phases 0-4 are the app. Everything after is worth having but not load-bearing.
+
+Phase 4's gate is deliberately a *different device*, not a round-trip on the same one:
+an export that only reimports where it was written has not been tested against the
+thing it exists for.
 
 Estimated ~1,000-1,500 lines of `script.js`, against MatchTracker's ~8,900.
 
@@ -211,3 +233,13 @@ Estimated ~1,000-1,500 lines of `script.js`, against MatchTracker's ~8,900.
 
 Notifications, journal, water, share cards, food logging, units toggle, Health sync,
 accounts. Rationale for each is in `RESEARCH.md`.
+
+---
+
+## Note: MatchTracker data and the phone change
+
+Unrelated to this app, but the same deadline. MatchTracker's real match history lives
+in IndexedDB on the current handset, and PWA storage does not reliably follow you to a
+new phone. Its export already exists and is tested (`test/backup.test.js`) — Home →
+**Export / Import** → **Export All Matches** → Save to Files. Worth doing before the
+migration, not after.
