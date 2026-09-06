@@ -204,6 +204,7 @@ body {
 .ring.is-over .ring-progress { stroke: var(--accent); }
 .ring.is-over .ring-elapsed  { color: var(--accent); }
 
+.stage-card.is-hidden { display: none; }
 .stage-card {
   margin-top: var(--sp-5);
   display: flex;
@@ -616,17 +617,15 @@ body {
   font-variant-numeric: tabular-nums;
   color: var(--secondary);
 }
-.about-note { font-size: 13px; color: var(--secondary); line-height: 1.4; }
-.about-note.is-good { color: var(--accent); }
-
-/* The diagnostic line is a readout, not prose: keep the digits aligned and
-   let it wrap rather than overflow on a narrow phone. */
-.about-diag {
-  font-size: 12px;
-  text-align: right;
-  max-width: 62%;
+.about-note {
+  display: none;
+  font-size: 13px;
+  color: var(--secondary);
   line-height: 1.4;
 }
+.about-note.is-shown { display: block; }
+.about-note.is-good { color: var(--accent); }
+
 
 /* ===== Import confirmation ===== */
 .import-summary {

@@ -8,7 +8,7 @@
 (function () {
   'use strict';
 
-  const APP_VERSION = '0.5.0';
+  const APP_VERSION = '0.5.1';
 
   // ---------------------------------------------------------------- storage
 
@@ -181,11 +181,6 @@
     const active = document.getElementById(name + '-view');
     if (active) active.scrollTop = 0;
 
-    // Re-read the viewport whenever Settings is opened. Measuring once at
-    // startup reported inset 0/0 and an 8pt gap while the screenshot showed
-    // 34pt - iOS had not settled the viewport by the time init ran, so the
-    // readout was describing a layout that no longer existed.
-    if (name === 'settings') renderAbout();
   }
 
   function wireNav() {
@@ -193,13 +188,6 @@
       tab.addEventListener('click', () => showView(tab.dataset.view));
     });
 
-    // The viewport can change after load and on rotation; keep the readout
-    // honest rather than frozen at whatever startup happened to see.
-    ['resize', 'orientationchange'].forEach((event) => {
-      window.addEventListener(event, () => {
-        if (document.querySelector('#settings-view.is-active')) renderAbout();
-      });
-    });
   }
 
   // ---------------------------------------------------------------- plans
@@ -356,9 +344,9 @@
       if (subEl) subEl.textContent = 'Ready to start';
       if (startedEl) startedEl.textContent = '--:--';
       if (endsEl) endsEl.textContent = '--:--';
-      if (stageNameEl) stageNameEl.textContent = 'Not fasting';
-      if (stageNoteEl) stageNoteEl.textContent = 'Start a fast to track your stage';
       if (btn) btn.textContent = 'Start fast';
+      const card = document.getElementById('stage-card');
+      if (card) card.classList.add('is-hidden');
       setRingProgress(0);
       return;
     }
@@ -382,6 +370,8 @@
     if (endsEl) endsEl.textContent = formatClock(fast.startedAt + goalMs);
     if (stageNameEl) stageNameEl.textContent = stage.name;
     if (stageNoteEl) stageNoteEl.textContent = stage.note;
+    const card = document.getElementById('stage-card');
+    if (card) card.classList.remove('is-hidden');
     if (btn) btn.textContent = 'End fast';
     setRingProgress(ms / goalMs);
   }
@@ -654,59 +644,8 @@
   function renderAbout() {
     const el = document.getElementById('app-version');
     if (el) el.textContent = APP_VERSION;
-    const diag = document.getElementById('app-diagnostics');
-    if (diag) diag.textContent = describeViewport();
   }
 
-  /**
-   * What the browser actually reports about the window it gave us.
-   *
-   * env() is only readable through a real element, and its values turned out
-   * not to match the documented ones on hardware - a bottom inset measured
-   * near 93pt on a phone whose home indicator needs 34. Guessing at that from
-   * screenshots cost two wrong fixes, so the app states it instead.
-   */
-  function measureInsets() {
-    const probe = document.createElement('div');
-    probe.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;'
-      + 'padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);';
-    document.body.appendChild(probe);
-    const style = getComputedStyle(probe);
-    const insets = {
-      top: Math.round(parseFloat(style.paddingTop) || 0),
-      bottom: Math.round(parseFloat(style.paddingBottom) || 0),
-    };
-    probe.remove();
-    return insets;
-  }
-
-  function describeViewport() {
-    const insets = measureInsets();
-    const standalone = window.matchMedia('(display-mode: standalone)').matches
-      || window.navigator.standalone === true;
-    const nav = document.querySelector('.tabbar');
-    const gap = nav
-      ? Math.round(window.innerHeight - nav.getBoundingClientRect().bottom)
-      : null;
-    return window.innerWidth + '\u00d7' + window.innerHeight
-      + ' · inset ' + insets.top + '/' + insets.bottom
-      + ' · gap ' + gap
-      + ' · ' + (standalone ? 'installed' : 'browser');
-  }
-
-  /**
-   * Ask the SERVER what it is serving, then reconcile.
-   *
-   * The previous version of this inspected registration.installing/.waiting
-   * after update() and called it "latest" when both were null. Because the
-   * worker calls skipWaiting(), the normal successful case ALSO leaves both
-   * null - the new worker has already installed and activated by then - so it
-   * reported "you are on the latest version" while sitting on a stale build.
-   * It could not distinguish nothing-new from already-done.
-   *
-   * Fetching sw.js and reading its CACHE_NAME is the only answer that does not
-   * depend on worker state, so that is what decides.
-   */
   async function fetchDeployedVersion() {
     try {
       // Cache-busted and no-store so neither the HTTP cache nor our own worker
@@ -745,6 +684,7 @@
     const say = (message, good) => {
       if (!status) return;
       status.textContent = message;
+      status.classList.add('is-shown');
       status.classList.toggle('is-good', !!good);
     };
 
@@ -1477,8 +1417,6 @@
     checkForUpdate,
     fetchDeployedVersion,
     forceRefresh,
-    measureInsets,
-    describeViewport,
     loadAppState,
     saveAppState,
     STORAGE_KEYS,
