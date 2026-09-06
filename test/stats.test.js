@@ -178,6 +178,58 @@ async function main() {
     check('counted on the start day', crossing.on12, true);
     check('not the day it ended', crossing.on13, false);
 
+    console.log('\n  The heatmap counts hours per day, not per fast');
+    /*
+     * Two different attributions, on purpose. Streaks and goal rates credit a
+     * whole fast to the day it STARTED - one fast belongs to one day. The
+     * heatmap cannot use that rule: a 30h fast would credit 30 hours to a
+     * single day, which is not a quantity a day can hold, and a 20h fast begun
+     * at 22:00 left the following day - almost entirely fasted - blank.
+     */
+    const hours = await page.evaluate(() => {
+      const H = 3600000;
+      const at = (d, h) => new Date(2026, 5, d, h).getTime();
+      const mk = (d, h, len) => ({ id: 'x', startedAt: at(d, h),
+        endedAt: at(d, h) + len * H, goalHours: 16, planId: 'custom', editedAt: null });
+      const now = new Date(2026, 5, 20).getTime();
+      const read = (fast) => {
+        const by = window.__ifTest.fastingHoursByDay([fast], now);
+        return [10, 11, 12].map((d) =>
+          Math.round((by.get(new Date(2026, 5, d).getTime()) || 0) / H));
+      };
+      return { long: read(mk(10, 20, 30)), evening: read(mk(10, 22, 20)) };
+    });
+    check('a 30h fast spreads over the days it covered',
+      hours.long.join(','), '4,24,2');
+    check('no day holds more than 24 hours',
+      hours.long.every((h) => h <= 24), true);
+    check('a 20h evening fast credits the day it ran through',
+      hours.evening.join(','), '2,18,0');
+
+    // The case that decided the approach: a daily routine is unaffected,
+    // because each day takes the tail of one fast and the start of the next.
+    check('a steady 16:8 still reads a full 16h a day', await page.evaluate(() => {
+      const H = 3600000, fasts = [];
+      for (let d = 9; d <= 13; d++) {
+        const s = new Date(2026, 5, d, 20).getTime();
+        fasts.push({ id: 'f' + d, startedAt: s, endedAt: s + 16 * H,
+          goalHours: 16, planId: '16-8', editedAt: null });
+      }
+      const by = window.__ifTest.fastingHoursByDay(fasts, new Date(2026, 5, 20).getTime());
+      return [10, 11, 12].map((d) =>
+        Math.round((by.get(new Date(2026, 5, d).getTime()) || 0) / H)).join(',');
+    }), '16,16,16');
+
+    // Streaks must NOT change: they still ask which day a fast belongs to.
+    check('streak attribution is untouched by that', await page.evaluate(() => {
+      const H = 3600000;
+      const s = new Date(2026, 5, 10, 20).getTime();
+      const fast = { id: 'long', startedAt: s, endedAt: s + 30 * H,
+        goalHours: 16, planId: 'custom', editedAt: null };
+      const by = window.__ifTest.fastsByDay([fast]);
+      return by.size === 1 && by.has(new Date(2026, 5, 10).getTime());
+    }), true);
+
     console.log('\n  Irish summer time does not shift the day');
     // 23:30 on 28 June is 22:30 UTC, so slicing an ISO string would file this
     // under the 28th correctly - but 00:30 on the 29th local is 23:30 UTC on

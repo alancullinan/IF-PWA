@@ -108,13 +108,28 @@ locks, backgrounding, force quits and reboots; any counter the app increments
 would drift, reset or double-count, and each failure yields a plausible wrong
 number rather than an error.
 
-### A fast belongs to the local day it STARTED on.
+### A fast belongs to the local day it STARTED on — except in the heatmap.
 
 A 16:8 fast normally crosses midnight. Attributing by the end moves most fasts
 to the following day, and deriving the day from `toISOString()` (UTC) files an
 Irish fast begun after 23:00 under tomorrow for half the year. Use
 `startOfLocalDay()`. `test/stats.test.js` runs in `Europe/Dublin` so a
 UTC-shaped bug cannot hide behind the test environment's timezone.
+
+Two attributions exist deliberately, and they must not be merged:
+
+- `fastsByDay()` credits a whole fast to its start day. One fast belongs to one
+  day, which is what streaks, goal rates and averages mean.
+- `fastingHoursByDay()` splits a fast at each local midnight, and only the
+  heatmap uses it. The start-day rule cannot draw a chart of hours: a 30h fast
+  credited 30 hours to a single day, which is not a quantity a day can hold, and
+  a 20h fast begun at 22:00 left the following day — almost entirely fasted —
+  blank.
+
+Splitting costs nothing in the normal case: a daily routine gives every day the
+tail of one fast plus the start of the next, so a steady 16:8 still reads a full
+16h per day either way. That equivalence is what settled the choice, and
+`test/stats.test.js` pins it.
 
 ### Share sheet: `files` only, and a dismissal is not a backup.
 

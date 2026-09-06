@@ -8,7 +8,7 @@
 (function () {
   'use strict';
 
-  const APP_VERSION = '0.6.1';
+  const APP_VERSION = '0.6.2';
 
   // ---------------------------------------------------------------- storage
 
@@ -1469,11 +1469,45 @@
   }
 
   /**
+   * Hours actually fasted on each local day, splitting a fast at midnight.
+   *
+   * Deliberately NOT fastsByDay(), which credits a whole fast to the day it
+   * started. That rule is right for streaks and goal rates - one fast belongs
+   * to one day - but wrong for a chart of hours: a 20h fast begun at 22:00 put
+   * all 20 hours on the start day and left the following day, almost entirely
+   * fasted, showing nothing at all. A 30h fast credited 30 hours to a single
+   * day, which is not a quantity a day can hold.
+   */
+  function fastingHoursByDay(fasts, now) {
+    const byDay = new Map();
+    const until = now || Date.now();
+
+    for (const fast of fasts) {
+      const end = fast.endedAt !== null ? fast.endedAt : until;
+      let cursor = fast.startedAt;
+      if (end <= cursor) continue;
+
+      while (cursor < end) {
+        const dayStart = startOfLocalDay(cursor);
+        // Next midnight via the Date constructor, so a DST change shifts the
+        // boundary by an hour rather than the slice landing on the wrong day.
+        const d = new Date(dayStart);
+        const nextMidnight = new Date(
+          d.getFullYear(), d.getMonth(), d.getDate() + 1).getTime();
+        const sliceEnd = Math.min(end, nextMidnight);
+        byDay.set(dayStart, (byDay.get(dayStart) || 0) + (sliceEnd - cursor));
+        cursor = sliceEnd;
+      }
+    }
+    return byDay;
+  }
+
+  /**
    * 13 weeks of levels, ordered as the grid renders them: column by column,
    * each column a week running Monday to Sunday, oldest week first.
    */
   function heatLevels(fasts, now) {
-    const byDay = fastsByDay(fasts);
+    const byDay = fastingHoursByDay(fasts, now);
     const today = startOfLocalDay(now || Date.now());
     // Monday of the current week. getDay() is 0 for Sunday, so shift it.
     const weekday = (new Date(today).getDay() + 6) % 7;
@@ -1489,8 +1523,8 @@
         const day = new Date(base.getFullYear(), base.getMonth(),
           base.getDate() + w * DAYS_PER_WEEK + d).getTime();
         if (day > today) { levels.push(0); continue; }
-        const entry = byDay.get(day);
-        levels.push(entry ? heatLevel(entry.totalMs) : 0);
+        const totalMs = byDay.get(day);
+        levels.push(totalMs ? heatLevel(totalMs) : 0);
       }
     }
     return levels;
@@ -1687,6 +1721,7 @@
     heatLevel,
     startOfLocalDay,
     fastsByDay,
+    fastingHoursByDay,
     renderStats,
     DataManager,
     formatBackupAge,
