@@ -111,9 +111,30 @@ async function main() {
       () => document.getElementById('edit-running-note').classList.contains('is-shown')), true);
 
     await setField(page, 'edit-started', now - 5 * HOUR);
-    check('summary previews the new duration', await text(page, '#edit-summary'), '5h 00m so far');
+    /*
+     * Derived, not hard-coded. <input type="datetime-local"> has MINUTE
+     * precision, so the seconds are truncated on the way in and the elapsed
+     * time is 5h plus however far into a minute the test happened to start.
+     * Asserting the literal "5h 00m" passed or failed depending on the clock.
+     */
+    check('summary previews the new duration', await page.evaluate(() => {
+      const started = window.__ifTest.fromLocalInputValue(
+        document.getElementById('edit-started').value);
+      const expected = window.__ifTest.formatDuration(
+        window.__ifTest.floorToMinute(Date.now() - started)) + ' so far';
+      return document.getElementById('edit-summary').textContent.trim() === expected;
+    }), true);
     check('save accepted', await page.evaluate(() => window.__ifTest.saveFastEdit()), true);
-    check('timer now reads the corrected time', await text(page, '#ring-elapsed'), '5h 00m');
+    check('the stored start really moved back five hours', await page.evaluate(() => {
+      const f = window.__ifTest.activeFast();
+      return Math.abs((Date.now() - f.startedAt) - 5 * 3600000) < 61000;
+    }), true);
+    check('timer now reads the corrected time', await page.evaluate(() => {
+      const f = window.__ifTest.activeFast();
+      const expected = window.__ifTest.formatDuration(
+        window.__ifTest.floorToMinute(Date.now() - f.startedAt));
+      return document.getElementById('ring-elapsed').textContent === expected;
+    }), true);
     check('the change is marked as an edit', await page.evaluate(
       () => window.__ifTest.activeFast().editedAt !== null), true);
     check('sheet closed', await page.evaluate(
@@ -121,7 +142,10 @@ async function main() {
 
     console.log('\n  …and it survives a relaunch');
     await page.goto(ctx.base, { waitUntil: 'networkidle2' });
-    check('still five hours', await text(page, '#ring-elapsed'), '5h 00m');
+    check('still five hours', await page.evaluate(() => {
+      const f = window.__ifTest.activeFast();
+      return Math.abs((Date.now() - f.startedAt) - 5 * 3600000) < 61000;
+    }), true);
     check('still flagged as edited', await page.evaluate(
       () => document.querySelector('#history-list .plan').textContent.includes('edited')), true);
 

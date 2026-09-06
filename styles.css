@@ -627,3 +627,14 @@ body {
   max-width: 62%;
   line-height: 1.4;
 }
+
+/* ===== Import confirmation ===== */
+.import-summary {
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--secondary);
+}
+.import-summary strong { color: var(--text); font-weight: 500; }
+
+/* A backup old enough that iOS may have evicted storage since. */
+.backup-when.is-stale { color: var(--accent); }

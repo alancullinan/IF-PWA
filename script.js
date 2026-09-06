@@ -8,7 +8,7 @@
 (function () {
   'use strict';
 
-  const APP_VERSION = '0.3.8';
+  const APP_VERSION = '0.4.0';
 
   // ---------------------------------------------------------------- storage
 
@@ -825,6 +825,258 @@
     if (updateBtn) updateBtn.addEventListener('click', checkForUpdate);
   }
 
+  // ---------------------------------------------------------------- backup
+
+  const BACKUP_FORMAT = 1;
+  // iOS clears storage for sites unused about this long, so a backup older
+  // than this is worth nagging about.
+  const STALE_BACKUP_DAYS = 7;
+
+  const DataManager = {
+    /** Everything worth keeping, in one plain object. */
+    buildPayload() {
+      return {
+        app: 'fasting-timer',
+        format: BACKUP_FORMAT,
+        appVersion: APP_VERSION,
+        exportedAt: new Date().toISOString(),
+        fasts: appState.fasts,
+        weights: appState.weights,
+        settings: appState.settings,
+      };
+    },
+
+    /** Timestamped to the MINUTE so two exports on one day cannot collide. */
+    filename(now) {
+      const d = new Date(now || Date.now());
+      const pad = (n) => String(n).padStart(2, '0');
+      return 'fasting-backup-' + d.getFullYear() + '-' + pad(d.getMonth() + 1)
+        + '-' + pad(d.getDate()) + '-' + pad(d.getHours()) + pad(d.getMinutes()) + '.json';
+    },
+
+    /**
+     * Hand the backup to the share sheet, falling back to a download.
+     *
+     * Two rules, both from real bugs:
+     *   - share() is passed `files` ONLY. iOS "Save to Files" materialises any
+     *     title or text as its own document, leaving a stray file beside every
+     *     backup.
+     *   - a dismissed sheet rejects with AbortError and is a CANCELLATION, not
+     *     a backup. Recording it would make the staleness line claim a backup
+     *     that never left the device, which is worse than no line at all.
+     *
+     * @returns {Promise<'shared'|'downloaded'|'cancelled'|'failed'>}
+     */
+    async exportData() {
+      const json = JSON.stringify(this.buildPayload(), null, 2);
+      const name = this.filename();
+      const blob = new Blob([json], { type: 'application/json' });
+
+      if (navigator.canShare && navigator.share) {
+        const file = new File([blob], name, { type: 'application/json' });
+        if (navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({ files: [file] });
+          } catch (err) {
+            if (err && err.name === 'AbortError') return 'cancelled';
+            return 'failed';
+          }
+          await this.recordBackup();
+          return 'shared';
+        }
+      }
+
+      try {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = name;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        console.error('Export failed:', err);
+        return 'failed';
+      }
+      await this.recordBackup();
+      return 'downloaded';
+    },
+
+    async recordBackup() {
+      appState.lastBackupAt = new Date().toISOString();
+      await saveAppState('lastBackupAt');
+      renderBackupStatus();
+    },
+
+    /**
+     * Read and check a backup file WITHOUT touching anything.
+     *
+     * Pure on purpose: the user sees what an import would do before any of it
+     * happens, and a malformed file cannot get half-applied.
+     *
+     * @returns {Promise<{ok: true, payload, fasts, weights, exportedAt}|{ok: false, error}>}
+     */
+    async analyzeImport(file) {
+      let payload;
+      try {
+        payload = JSON.parse(await file.text());
+      } catch {
+        return { ok: false, error: 'That file is not readable JSON.' };
+      }
+      if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+        return { ok: false, error: 'That does not look like a backup file.' };
+      }
+      if (payload.app && payload.app !== 'fasting-timer') {
+        return { ok: false, error: 'That backup is from a different app.' };
+      }
+      if (!Array.isArray(payload.fasts)) {
+        return { ok: false, error: 'That backup has no fasts in it.' };
+      }
+      const bad = payload.fasts.find((f) => !f
+        || typeof f.id === 'undefined'
+        || typeof f.startedAt !== 'number'
+        || (f.endedAt !== null && typeof f.endedAt !== 'number')
+        || typeof f.goalHours !== 'number');
+      if (bad) return { ok: false, error: 'That backup contains a damaged fast.' };
+
+      return {
+        ok: true,
+        payload,
+        fasts: payload.fasts.length,
+        weights: Array.isArray(payload.weights) ? payload.weights.length : 0,
+        exportedAt: payload.exportedAt || null,
+      };
+    },
+
+    /**
+     * Replace everything on this device with the backup.
+     *
+     * A whole replacement rather than a merge: a phone change means importing
+     * onto an empty device, and merging two diverged copies of the same fast
+     * has no correct answer. The confirmation says exactly this.
+     */
+    async applyImport(payload) {
+      appState.fasts = payload.fasts;
+      appState.weights = Array.isArray(payload.weights) ? payload.weights : [];
+      appState.settings = { ...DEFAULT_SETTINGS, ...(payload.settings || {}) };
+
+      const results = await Promise.all([
+        saveAppState('fasts'), saveAppState('weights'), saveAppState('settings'),
+      ]);
+      if (results.some((ok) => !ok)) return false;
+
+      stopTicking();
+      renderPresets();
+      renderTimer();
+      renderHistory();
+      renderBackupStatus();
+      if (activeFast()) startTicking();
+      return true;
+    },
+  };
+
+  /** "No backup yet", "Last backup today", "Last backup 9 days ago". */
+  function formatBackupAge(iso, now) {
+    if (!iso) return { text: 'No backup yet', stale: true };
+    const then = new Date(iso).getTime();
+    if (Number.isNaN(then)) return { text: 'No backup yet', stale: true };
+    const days = Math.floor(((now || Date.now()) - then) / 86400000);
+    const text = days <= 0 ? 'Last backup today'
+      : days === 1 ? 'Last backup yesterday'
+      : 'Last backup ' + days + ' days ago';
+    return { text, stale: days >= STALE_BACKUP_DAYS };
+  }
+
+  function renderBackupStatus() {
+    const el = document.getElementById('backup-when');
+    if (!el) return;
+    const age = formatBackupAge(appState.lastBackupAt);
+    el.textContent = age.text;
+    el.classList.toggle('is-stale', age.stale);
+  }
+
+  // ---------------------------------------------------------------- import UI
+
+  let pendingImport = null;
+
+  function closeImportSheet() {
+    pendingImport = null;
+    document.getElementById('import-sheet').classList.remove('is-open');
+  }
+
+  function showImportError(message) {
+    const el = document.getElementById('import-error');
+    el.textContent = message || '';
+    el.classList.toggle('is-shown', !!message);
+  }
+
+  async function offerImport(file) {
+    const summary = document.getElementById('import-summary');
+    const confirm = document.getElementById('import-confirm');
+    const analysis = await DataManager.analyzeImport(file);
+
+    showImportError(null);
+    if (!analysis.ok) {
+      pendingImport = null;
+      summary.textContent = '';
+      confirm.disabled = true;
+      showImportError(analysis.error);
+    } else {
+      pendingImport = analysis.payload;
+      confirm.disabled = false;
+      const when = analysis.exportedAt
+        ? ' from ' + formatDayLabel(new Date(analysis.exportedAt).getTime())
+        : '';
+      const here = appState.fasts.length;
+      summary.innerHTML = 'This backup holds <strong>' + analysis.fasts
+        + (analysis.fasts === 1 ? ' fast' : ' fasts') + '</strong>' + when
+        + '. Importing replaces the <strong>' + here
+        + (here === 1 ? ' fast' : ' fasts') + '</strong> on this device.';
+    }
+    document.getElementById('import-sheet').classList.add('is-open');
+  }
+
+  function wireBackup() {
+    const exportBtn = document.getElementById('export-btn');
+    const importBtn = document.getElementById('import-btn');
+    const fileInput = document.getElementById('import-file');
+
+    if (exportBtn) {
+      exportBtn.addEventListener('click', async () => {
+        const label = exportBtn.textContent;
+        exportBtn.disabled = true;
+        const result = await DataManager.exportData();
+        exportBtn.disabled = false;
+        exportBtn.textContent = result === 'failed' ? 'Export failed' : label;
+        if (result === 'failed') setTimeout(() => { exportBtn.textContent = label; }, 2500);
+      });
+    }
+
+    if (importBtn && fileInput) {
+      importBtn.addEventListener('click', () => fileInput.click());
+      fileInput.addEventListener('change', async () => {
+        const file = fileInput.files && fileInput.files[0];
+        // Reset so choosing the same file twice still fires a change event.
+        fileInput.value = '';
+        if (file) await offerImport(file);
+      });
+    }
+
+    document.getElementById('import-cancel').addEventListener('click', closeImportSheet);
+    document.getElementById('import-sheet').addEventListener('click', (event) => {
+      if (event.target.id === 'import-sheet') closeImportSheet();
+    });
+    document.getElementById('import-confirm').addEventListener('click', async () => {
+      if (!pendingImport) return;
+      const payload = pendingImport;
+      const ok = await DataManager.applyImport(payload);
+      if (!ok) { showImportError('Could not save the imported data.'); return; }
+      closeImportSheet();
+      showView('history');
+    });
+  }
+
   // ---------------------------------------------------------------- ticking
 
   let tickHandle = null;
@@ -995,6 +1247,7 @@
     wireNav();
     wireTimer();
     wireHistory();
+    wireBackup();
     showView('timer');
     renderHeatmap(placeholderHeatLevels());
 
@@ -1006,6 +1259,7 @@
     renderPresets();
     renderTimer();
     renderHistory();
+    renderBackupStatus();
     renderAbout();
     if (activeFast()) startTicking();
   }
@@ -1051,6 +1305,11 @@
     toLocalInputValue,
     fromLocalInputValue,
     fastsNewestFirst,
+    DataManager,
+    formatBackupAge,
+    renderBackupStatus,
+    offerImport,
+    closeImportSheet,
     renderAbout,
     checkForUpdate,
     fetchDeployedVersion,

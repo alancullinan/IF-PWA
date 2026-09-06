@@ -17,7 +17,7 @@
     caches.match() keys on the full URL including the query string, so bumping
     one without the other serves a stale file.
   -->
-  <link rel="stylesheet" href="styles.css?v=0.3.8">
+  <link rel="stylesheet" href="styles.css?v=0.4.0">
   <link rel="manifest" href="manifest.json">
 
   <meta name="theme-color" content="#12142A">
@@ -198,6 +198,7 @@
         </div>
         <button class="btn btn-primary" type="button" id="export-btn">Export backup</button>
         <button class="btn btn-secondary" type="button" id="import-btn">Import backup</button>
+        <input type="file" id="import-file" accept="application/json,.json" hidden>
       </div>
     </div>
 
@@ -251,6 +252,20 @@
   </div>
 </div>
 
+<!-- ===================== Import confirmation ===================== -->
+<div class="sheet" id="import-sheet" role="dialog" aria-modal="true" aria-labelledby="import-sheet-title">
+  <div class="sheet-panel">
+    <div class="sheet-head">
+      <button class="sheet-action" type="button" id="import-cancel">Cancel</button>
+      <div class="sheet-title" id="import-sheet-title">Import backup</div>
+      <span class="sheet-action" aria-hidden="true"></span>
+    </div>
+    <div class="import-summary" id="import-summary"></div>
+    <div class="edit-error" id="import-error" role="alert"></div>
+    <button class="btn btn-danger" type="button" id="import-confirm">Replace everything on this device</button>
+  </div>
+</div>
+
 <!-- ===================== Bottom navigation ===================== -->
 <nav class="tabbar" aria-label="Main">
   <button class="tab is-active" type="button" data-view="timer" aria-current="page">
@@ -283,6 +298,6 @@
   </button>
 </nav>
 
-<script src="script.js?v=0.3.8" defer></script>
+<script src="script.js?v=0.4.0" defer></script>
 </body>
 </html>
