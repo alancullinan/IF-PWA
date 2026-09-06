@@ -8,7 +8,7 @@
 (function () {
   'use strict';
 
-  const APP_VERSION = '0.3.6';
+  const APP_VERSION = '0.3.7';
 
   // ---------------------------------------------------------------- storage
 
@@ -690,6 +690,52 @@
       + ' · ' + (standalone ? 'installed' : 'browser');
   }
 
+  /**
+   * Ask the SERVER what it is serving, then reconcile.
+   *
+   * The previous version of this inspected registration.installing/.waiting
+   * after update() and called it "latest" when both were null. Because the
+   * worker calls skipWaiting(), the normal successful case ALSO leaves both
+   * null - the new worker has already installed and activated by then - so it
+   * reported "you are on the latest version" while sitting on a stale build.
+   * It could not distinguish nothing-new from already-done.
+   *
+   * Fetching sw.js and reading its CACHE_NAME is the only answer that does not
+   * depend on worker state, so that is what decides.
+   */
+  async function fetchDeployedVersion() {
+    try {
+      // Cache-busted and no-store so neither the HTTP cache nor our own worker
+      // can answer with the copy we are trying to look past.
+      const response = await fetch('sw.js?probe=' + Date.now(), { cache: 'no-store' });
+      if (!response.ok) return null;
+      const text = await response.text();
+      const match = text.match(/CACHE_NAME = 'fasting-v([^']+)'/);
+      return match ? match[1] : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Last resort: drop the worker and every cache, then reload.
+   *
+   * IndexedDB is deliberately untouched, so fasts and settings survive - this
+   * is the recovery that does NOT cost the user their history, unlike deleting
+   * the app from the Home Screen.
+   */
+  async function forceRefresh() {
+    try {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map((r) => r.unregister()));
+      const names = await caches.keys();
+      await Promise.all(names.map((n) => caches.delete(n)));
+    } catch (err) {
+      console.error('Force refresh failed:', err);
+    }
+    window.location.reload();
+  }
+
   async function checkForUpdate() {
     const status = document.getElementById('update-status');
     const say = (message, good) => {
@@ -698,25 +744,36 @@
       status.classList.toggle('is-good', !!good);
     };
 
-    if (!('serviceWorker' in navigator)) { say('Updates are not available here.'); return false; }
-    const registration = await navigator.serviceWorker.getRegistration();
-    if (!registration) { say('Not installed as an app, so there is nothing to update.'); return false; }
-
     say('Checking…');
-    try {
-      await registration.update();
-    } catch {
+    const deployed = await fetchDeployedVersion();
+
+    if (deployed === null) {
       say('Could not reach the server. Try again on a connection.');
       return false;
     }
-    // A waiting or installing worker means a newer build is on its way in; the
-    // controllerchange handler reloads into it.
-    if (registration.installing || registration.waiting) {
-      say('A new version is installing. The app will reload in a moment.');
-      return true;
+    if (deployed === APP_VERSION) {
+      say('You are on the latest version (' + deployed + ').', true);
+      return false;
     }
-    say('You are on the latest version.', true);
-    return false;
+
+    say('Version ' + deployed + ' is available. Updating…');
+
+    if ('serviceWorker' in navigator) {
+      const registration = await navigator.serviceWorker.getRegistration();
+      if (registration) {
+        try {
+          await registration.update();
+        } catch { /* fall through to the hard reset */ }
+        // Give the install/activate/claim chain a moment to reload us.
+        await new Promise((resolve) => setTimeout(resolve, 2500));
+      }
+    }
+
+    // Still here, so the worker did not take over. Clear it out by hand; the
+    // stored fasts are in IndexedDB and are not touched.
+    say('Clearing the cached copy…');
+    await forceRefresh();
+    return true;
   }
 
   function wireHistory() {
@@ -996,6 +1053,8 @@
     fastsNewestFirst,
     renderAbout,
     checkForUpdate,
+    fetchDeployedVersion,
+    forceRefresh,
     measureInsets,
     describeViewport,
     loadAppState,

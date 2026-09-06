@@ -170,6 +170,10 @@ async function main() {
     check('worker took control', await waitForController(page), true);
     check('running the old version', await page.evaluate(
       () => window.__ifTest.APP_VERSION), OLD);
+    check('the server agrees, so no update is offered', await page.evaluate(
+      () => window.__ifTest.fetchDeployedVersion()), OLD);
+    check('and the check says so rather than guessing', await page.evaluate(
+      () => window.__ifTest.checkForUpdate()), false);
 
     console.log('\n  Deploy a new release over it');
     await deployNewVersion(ctx.root, OLD, NEW);
@@ -224,6 +228,36 @@ async function main() {
       async () => (await caches.keys())[0]), `fasting-v${NEW}`);
     check('and only that one exists', await page.evaluate(
       async () => (await caches.keys()).length), 1);
+
+    console.log('\n  The update check asks the server, not the worker');
+    /*
+     * The old check read registration.installing/.waiting and called it
+     * "latest" when both were null. Because the worker calls skipWaiting(),
+     * that is ALSO what a completed update looks like, so it reported "latest"
+     * while sitting on a stale build. Here the running app is deliberately
+     * behind what the server serves.
+     */
+    check('the server version is read from sw.js', await page.evaluate(
+      () => window.__ifTest.fetchDeployedVersion()), NEW);
+    check('while the app is knowingly behind it', await page.evaluate(
+      () => window.__ifTest.APP_VERSION), STUCK);
+
+    console.log('\n  Force refresh recovers without eating data');
+    await page.evaluate(async () => {
+      await window.__ifTest.StorageManager.saveData('fasts', [{
+        id: 'survives', startedAt: 1000, endedAt: 2000,
+        goalHours: 16, planId: '16-8', editedAt: null,
+      }]);
+    });
+    // It unregisters the worker, drops every cache and reloads, so the page
+    // goes away underneath us.
+    await page.evaluate(() => { window.__ifTest.forceRefresh(); }).catch(() => {});
+    await sleep(2000);
+    await page.goto(ctx.base, { waitUntil: 'networkidle2' });
+    check('the recorded fast is still there', await page.evaluate(
+      async () => (await window.__ifTest.StorageManager.loadData('fasts'))[0].id), 'survives');
+    check('and the app still runs', await page.evaluate(
+      () => !!document.querySelector('#timer-view')), true);
 
     console.log('\n  The running version is visible in the app');
     // Without this the only way to tell a bug from a stale cache is guesswork.
