@@ -17,7 +17,7 @@
     caches.match() keys on the full URL including the query string, so bumping
     one without the other serves a stale file.
   -->
-  <link rel="stylesheet" href="styles.css?v=0.3.7">
+  <link rel="stylesheet" href="styles.css?v=0.3.8">
   <link rel="manifest" href="manifest.json">
 
   <meta name="theme-color" content="#12142A">
@@ -25,16 +25,13 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <!--
-    NOT black-translucent. That style makes iOS size the web view to
-    screen-minus-status-bar but position it at the very TOP, under the status
-    bar - so the leftover 59pt lands at the BOTTOM as an unusable strip, and
-    the tab bar appears to float ~93pt off the screen edge no matter what the
-    CSS does. Measured on an iPhone 15 Pro: a 793pt view on an 852pt screen,
-    with the nav correctly 34pt above the VIEW's bottom and 93pt above the
-    SCREEN's. "default" lays the view out below the status bar instead, where
-    it reaches the bottom of the screen.
+    black-translucent WITH viewport-fit=cover, matching Match Tracker, which is
+    installed on the same phone and does fill the screen. Together they make the
+    web view cover the whole display; the shell is then sized with 100vh (the
+    LARGE viewport) rather than position:fixed inset:0, which resolves to the
+    visual viewport and came up 59pt short - the status bar's height.
   -->
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Fasting">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192x192.png">
@@ -286,6 +283,6 @@
   </button>
 </nav>
 
-<script src="script.js?v=0.3.7" defer></script>
+<script src="script.js?v=0.3.8" defer></script>
 </body>
 </html>

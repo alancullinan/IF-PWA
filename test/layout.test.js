@@ -51,13 +51,20 @@ function checkBottomInsetOwnedOnce(check) {
   const viewBlock = (css.match(/\n\.view \{[^}]*\}/) || [''])[0];
   const htmlBody = (css.match(/\nhtml, body \{[^}]*\}/) || [''])[0];
 
-  // The shell is pinned to the viewport. height:100% combined with a safe-area
-  // padding is what put 93pt under the tab bar on an iPhone 15 Pro: the 100%
-  // resolves against a box that already excludes the status bar, so the padding
-  // shifts content down without the height following.
-  check('the shell is pinned, not sized with height 100%',
-    /height:\s*100%/.test(htmlBody), false);
-  check('body is fixed to the viewport', /position:\s*fixed/.test(bodyBlock), true);
+  /*
+   * The shell must be one LARGE viewport tall.
+   *
+   * Three ways of saying "full height" disagree on an installed iOS app:
+   * 100vh is the large viewport (the whole screen), position:fixed inset:0
+   * resolves to the visual viewport (measured at 793pt on an 852pt screen),
+   * and height:100% resolves against a box that already excludes the status
+   * bar. The last two both leave a strip of screen the app never draws on.
+   */
+  check('the shell is sized with 100vh', /height:\s*100vh/.test(bodyBlock), true);
+  check('not with a percentage height',
+    /height:\s*100%/.test(htmlBody) || /height:\s*100%/.test(bodyBlock), false);
+  check('and not pinned to the visual viewport',
+    /position:\s*fixed/.test(bodyBlock), false);
   check('body cannot scroll itself', /overflow:\s*hidden/.test(bodyBlock), true);
   check('body does not drag or bounce',
     /overscroll-behavior:\s*none/.test(bodyBlock), true);
@@ -84,27 +91,27 @@ function checkBottomInsetOwnedOnce(check) {
 }
 
 /**
- * The iOS status-bar style, checked statically.
+ * The full-screen recipe, checked statically.
  *
- * black-translucent makes iOS size the web view to screen-minus-status-bar but
- * anchor it at the top, so the leftover appears as an unusable strip along the
- * BOTTOM and the tab bar looks ~93pt high however correct the CSS is. Measured
- * on hardware: a 793pt view on an 852pt screen, nav 34pt above the view's
- * bottom and 93pt above the screen's. Nothing in the layout can compensate,
- * because the pixels below simply are not ours to draw on.
+ * black-translucent plus viewport-fit=cover is what makes the web view cover
+ * the whole display - this is the combination Match Tracker uses on the same
+ * hardware, where it demonstrably fills the screen. I briefly blamed
+ * black-translucent for the gap and removed it; that was wrong, and the real
+ * culprit was how the shell was SIZED (below).
  */
-function checkStatusBarStyle(check) {
+function checkFullScreenRecipe(check) {
   const html = fsSync.readFileSync(path.join(REPO, 'index.html'), 'utf8');
   const style = (html.match(/apple-mobile-web-app-status-bar-style"\s+content="([^"]+)"/) || [])[1];
-  check('the status bar style is declared', typeof style === 'string', true);
-  check('and is not black-translucent', style === 'black-translucent', false);
+  const viewport = (html.match(/name="viewport"\s+content="([^"]+)"/) || [])[1] || '';
+  check('the status bar style is black-translucent', style, 'black-translucent');
+  check('and the viewport covers the display', viewport.includes('viewport-fit=cover'), true);
 }
 
 async function main() {
   const { check, report } = makeChecker();
 
   console.log('\n  The web view fills the screen');
-  checkStatusBarStyle(check);
+  checkFullScreenRecipe(check);
 
   console.log('\n  The bottom inset is owned by exactly one element');
   checkBottomInsetOwnedOnce(check);

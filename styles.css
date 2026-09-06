@@ -80,31 +80,29 @@ html, body {
 }
 
 /*
- * The app shell is pinned to the viewport rather than sized with height: 100%.
+ * The app shell is exactly one large-viewport tall.
  *
- * height:100% plus padding-top: env(safe-area-inset-top) is the trap. In an
- * installed iOS app the 100% resolves against a box that already excludes the
- * status bar, so the padding pushes everything down while the height stays put
- * and the content ends short by exactly the top inset - measured on an iPhone
- * 15 Pro as 93pt of dead space under the tab bar, which is 59 (top) + 34
- * (bottom), not the 34 intended.
+ * 100vh, not position:fixed inset:0 and not height:100%. On an installed iOS
+ * app those three disagree: 100vh is the LARGE viewport (the full screen),
+ * while inset:0 resolves to the visual viewport, which this phone reported as
+ * 793pt on an 852pt screen. Sizing the shell to the smaller of them left 59pt
+ * of screen - exactly the status bar's height - that the app never drew on, so
+ * the tab bar appeared to float far above the bottom edge however the margins
+ * were tuned. height:100% is worse again, resolving against a box that already
+ * excludes the status bar.
  *
- * position: fixed with inset: 0 is exactly the viewport, whatever iOS decides
- * that is, and it cannot rubber-band. The safe-area insets are then applied by
- * the elements that actually touch those edges: the top on .view, the bottom
- * on .tabbar. No element handles an inset it does not sit against.
+ * Match Tracker, installed on the same phone, uses min-height:100vh with
+ * black-translucent and does fill the screen; this follows it.
  */
 body {
-  position: fixed;
-  inset: 0;
+  height: 100vh;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   /* Nothing outside a .view may scroll, so the shell never drags or bounces. */
   overscroll-behavior: none;
 }
-
-button { font-family: inherit; cursor: pointer; }
 
 /* ===== View switching ===== */
 #app {
