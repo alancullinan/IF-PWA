@@ -279,12 +279,14 @@ Resolved by the project being personal:
 - **Share cards, water tracking, onboarding** — cut.
 - **Privacy/accounts** — moot. No server, no account, data never leaves the device.
 
-Still genuinely open:
-1. **Hosting.** Same pattern as `matchtracker.club` — GitHub Pages with a `CNAME` at a
-   domain root? The service worker precaches root-absolute paths, so a subpath deploy
-   (`alancullinan.github.io/IF-PWA/`) needs those made relative first. Worth deciding
-   before the first commit of `sw.js`, not after.
-2. **Journal.** In or out for v1 — depends on whether I would actually use it.
+Resolved since:
+- **Hosting** — subpath (`alancullinan.github.io/IF-PWA/`). Every path in the project
+  must therefore be relative rather than root-absolute, unlike MatchTracker. See
+  `PLAN.md` §0, which is the highest-risk part of the build to get wrong.
+- **Journal** — out. Mood/energy/hunger tracking would not get filled in. The data
+  model leaves room to add it later without a migration.
+
+Nothing is blocking. Build order is in `docs/PLAN.md`.
 
 ---
 
