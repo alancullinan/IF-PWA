@@ -8,7 +8,7 @@
 (function () {
   'use strict';
 
-  const APP_VERSION = '0.3.0';
+  const APP_VERSION = '0.3.1';
 
   // ---------------------------------------------------------------- storage
 

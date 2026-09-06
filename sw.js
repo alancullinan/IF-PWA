@@ -16,7 +16,7 @@
 
 // Bump together with the ?v= strings in index.html on every deploy. Neither
 // alone is enough: caches.match() keys on the full URL including the query.
-const CACHE_NAME = 'fasting-v0.3.0';
+const CACHE_NAME = 'fasting-v0.3.1';
 
 // './' and './index.html' are DISTINCT cache keys, and GitHub Pages serves the
 // bare directory URL from index.html, so both are precached.

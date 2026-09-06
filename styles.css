@@ -83,9 +83,11 @@ html, body {
 body {
   display: flex;
   flex-direction: column;
-  /* Standalone iOS: keep content clear of the notch and the home indicator. */
+  /* Standalone iOS: clear the notch at the top. The BOTTOM inset is applied on
+     the tab bar itself, not here - having both meant the home-indicator inset
+     and the tab bar's own margin stacked, floating the nav ~58px off the
+     bottom edge and stealing that height from the view above it. */
   padding-top: env(safe-area-inset-top);
-  padding-bottom: env(safe-area-inset-bottom);
 }
 
 button { font-family: inherit; cursor: pointer; }
@@ -153,14 +155,16 @@ button { font-family: inherit; cursor: pointer; }
 .ring-wrap {
   display: flex;
   justify-content: center;
-  margin-top: var(--sp-7);
+  margin-top: var(--sp-5);
 }
 .ring {
   position: relative;
-  width: 268px;
-  height: 268px;
+  /* Fluid so the Start/End button stays above the fold on shorter phones:
+     the ring is the one element big enough to push it off. */
+  width: min(268px, 68vw, 30vh);
+  aspect-ratio: 1;
 }
-.ring svg { display: block; }
+.ring svg { display: block; width: 100%; height: 100%; }
 .ring-track    { stroke: var(--track);  }
 .ring-progress { stroke: var(--accent); transition: stroke-dasharray 400ms ease; }
 .ring-centre {
@@ -173,7 +177,7 @@ button { font-family: inherit; cursor: pointer; }
   gap: var(--sp-1);
 }
 .ring-elapsed {
-  font-size: 46px;
+  font-size: clamp(32px, 12vw, 46px);
   font-weight: 300;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
@@ -185,7 +189,7 @@ button { font-family: inherit; cursor: pointer; }
 .ring.is-over .ring-elapsed  { color: var(--accent); }
 
 .stage-card {
-  margin-top: var(--sp-7);
+  margin-top: var(--sp-5);
   display: flex;
   align-items: center;
   gap: var(--sp-3);
@@ -241,7 +245,7 @@ button { font-family: inherit; cursor: pointer; }
   font-weight: 500;
   min-height: 50px;
 }
-.btn-row { margin-top: var(--sp-6); }
+.btn-row { margin-top: var(--sp-5); }
 
 /* ===== History ===== */
 .history-list {
@@ -417,7 +421,9 @@ button { font-family: inherit; cursor: pointer; }
   background: var(--surface);
   border-radius: var(--r-lg);
   padding: var(--sp-3) 10px;
-  margin: var(--sp-5) var(--sp-6) var(--sp-6);
+  /* max(), not addition: on a phone with a home indicator the inset already
+     is the gap, and on one without it there is still a small margin. */
+  margin: var(--sp-3) var(--sp-6) max(var(--sp-2), env(safe-area-inset-bottom));
   flex: 0 0 auto;
 }
 .tab {
@@ -437,7 +443,7 @@ button { font-family: inherit; cursor: pointer; }
 .tab.is-active { color: var(--accent); }
 
 /* Bottom padding so the last card clears the tab bar while scrolling. */
-.view > :last-child { margin-bottom: var(--sp-6); }
+.view > :last-child { margin-bottom: var(--sp-4); }
 
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
