@@ -8,7 +8,7 @@
 (function () {
   'use strict';
 
-  const APP_VERSION = '0.6.0';
+  const APP_VERSION = '0.6.1';
 
   // ---------------------------------------------------------------- storage
 
@@ -203,6 +203,49 @@
 
   const planById = (id) => PLANS.find((p) => p.id === id) || PLANS[2];
 
+  const CUSTOM_MIN_HOURS = 1;
+  const CUSTOM_MAX_HOURS = 48;
+
+  /** "17:7" while an eating window still makes sense, plain hours beyond a day. */
+  function customLabel(hours) {
+    return hours < 24 ? hours + ':' + (24 - hours) : hours + 'h';
+  }
+
+  /**
+   * The plan a NEW fast would use.
+   *
+   * 'custom' is not in PLANS - it is a length the user set, kept in settings -
+   * so it is resolved here rather than through planById(), which falls back to
+   * 16:8 for anything it does not recognise.
+   */
+  function activePlan() {
+    const settings = appState.settings;
+    if (settings.activePlanId === 'custom') {
+      const hours = clampCustomHours(settings.customHours);
+      return { id: 'custom', label: customLabel(hours), goalHours: hours };
+    }
+    return planById(settings.activePlanId);
+  }
+
+  /**
+   * The label for a fast that has already been recorded.
+   *
+   * A custom fast is labelled from its OWN goalHours, not from the current
+   * setting: history has to keep saying what that fast actually was, even
+   * after the custom length is changed or switched off.
+   */
+  function planLabelFor(fast) {
+    return fast.planId === 'custom'
+      ? customLabel(fast.goalHours)
+      : planById(fast.planId).label;
+  }
+
+  function clampCustomHours(hours) {
+    const n = Math.round(Number(hours));
+    if (!Number.isFinite(n)) return 16;
+    return Math.min(CUSTOM_MAX_HOURS, Math.max(CUSTOM_MIN_HOURS, n));
+  }
+
   /**
    * Metabolic stages, by hours elapsed.
    *
@@ -281,7 +324,7 @@
 
   async function startFast() {
     if (activeFast()) return null;
-    const plan = planById(appState.settings.activePlanId);
+    const plan = activePlan();
     const fast = {
       id: newId(),
       startedAt: Date.now(),
@@ -318,6 +361,17 @@
     renderPresets();
     renderTimer();
     return plan;
+  }
+
+  /** Switch to a custom length. Returns the hours actually stored. */
+  async function setCustomPlan(hours) {
+    const clamped = clampCustomHours(hours);
+    appState.settings.activePlanId = 'custom';
+    appState.settings.customHours = clamped;
+    await saveAppState('settings');
+    renderPresets();
+    renderTimer();
+    return clamped;
   }
 
   /**
@@ -454,7 +508,7 @@
 
   function renderTimer() {
     const fast = activeFast();
-    const plan = planById(appState.settings.activePlanId);
+    const plan = activePlan();
 
     const nameEl = document.getElementById('fast-name');
     const chipEl = document.getElementById('plan-chip');
@@ -466,7 +520,7 @@
     const stageNoteEl = document.getElementById('stage-note');
     const btn = document.getElementById('fast-toggle-btn');
 
-    if (chipEl) chipEl.textContent = (fast ? planById(fast.planId) : plan).label;
+    if (chipEl) chipEl.textContent = fast ? planLabelFor(fast) : plan.label;
 
     if (!fast) {
       if (nameEl) nameEl.textContent = 'Not fasting';
@@ -516,6 +570,75 @@
     const active = appState.settings.activePlanId;
     document.querySelectorAll('.preset').forEach((el) => {
       el.setAttribute('aria-pressed', String(el.dataset.plan === active));
+    });
+
+    const row = document.getElementById('custom-plan-btn');
+    const value = document.getElementById('custom-plan-value');
+    const isCustom = active === 'custom';
+    if (row) row.setAttribute('aria-pressed', String(isCustom));
+    if (value) {
+      value.textContent = isCustom
+        ? clampCustomHours(appState.settings.customHours) + 'h'
+        : 'Off';
+    }
+  }
+
+  // ------------------------------------------------------------ custom sheet
+
+  let customDraftHours = 16;
+
+  function renderCustomSheet() {
+    const hours = customDraftHours;
+    document.getElementById('custom-hours').textContent = hours;
+    document.getElementById('custom-note').textContent = hours < 24
+      ? 'Leaves a ' + (24 - hours) + 'h eating window'
+      : 'Longer than a day, so there is no daily eating window';
+    document.getElementById('custom-minus').disabled = hours <= CUSTOM_MIN_HOURS;
+    document.getElementById('custom-plus').disabled = hours >= CUSTOM_MAX_HOURS;
+  }
+
+  function openCustomSheet() {
+    const settings = appState.settings;
+    // Start from the custom length if there is one, otherwise from whatever
+    // preset is selected - adjusting from where you are beats starting at 16.
+    customDraftHours = settings.activePlanId === 'custom'
+      ? clampCustomHours(settings.customHours)
+      : activePlan().goalHours;
+    renderCustomSheet();
+    document.getElementById('custom-sheet').classList.add('is-open');
+  }
+
+  function closeCustomSheet() {
+    document.getElementById('custom-sheet').classList.remove('is-open');
+  }
+
+  function nudgeCustomHours(delta) {
+    customDraftHours = clampCustomHours(customDraftHours + delta);
+    renderCustomSheet();
+    return customDraftHours;
+  }
+
+  function wireCustomPlan() {
+    const open = document.getElementById('custom-plan-btn');
+    if (open) open.addEventListener('click', openCustomSheet);
+    document.getElementById('custom-cancel').addEventListener('click', closeCustomSheet);
+    document.getElementById('custom-minus').addEventListener('click', () => nudgeCustomHours(-1));
+    document.getElementById('custom-plus').addEventListener('click', () => nudgeCustomHours(1));
+    document.getElementById('custom-save').addEventListener('click', async () => {
+      await setCustomPlan(customDraftHours);
+      closeCustomSheet();
+    });
+    document.getElementById('custom-off').addEventListener('click', async () => {
+      // Fall back to the nearest preset rather than a fixed one, so turning
+      // custom off does not silently move the goal further than expected.
+      const nearest = PLANS.reduce((best, plan) =>
+        Math.abs(plan.goalHours - customDraftHours) < Math.abs(best.goalHours - customDraftHours)
+          ? plan : best);
+      await setActivePlan(nearest.id);
+      closeCustomSheet();
+    });
+    document.getElementById('custom-sheet').addEventListener('click', (event) => {
+      if (event.target.id === 'custom-sheet') closeCustomSheet();
     });
   }
 
@@ -662,7 +785,7 @@
       + ' → ' + (running ? 'now' : formatClock(fast.endedAt));
     const plan = document.createElement('div');
     plan.className = 'plan';
-    plan.textContent = planById(fast.planId).label + (fast.editedAt ? ' · edited' : '');
+    plan.textContent = planLabelFor(fast) + (fast.editedAt ? ' · edited' : '');
     foot.append(when, plan);
 
     row.append(top, bar, foot);
@@ -1488,6 +1611,7 @@
     wireTimer();
     wireHistory();
     wireBackup();
+    wireCustomPlan();
     showView('timer');
     StorageManager.requestPersistence();
     await loadAppState();
@@ -1529,6 +1653,14 @@
     activeFast,
     elapsedMs,
     setActivePlan,
+    setCustomPlan,
+    activePlan,
+    planLabelFor,
+    customLabel,
+    clampCustomHours,
+    openCustomSheet,
+    closeCustomSheet,
+    nudgeCustomHours,
     renderTimer,
     formatDuration,
     formatClock,

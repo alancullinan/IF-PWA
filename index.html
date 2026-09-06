@@ -17,7 +17,7 @@
     caches.match() keys on the full URL including the query string, so bumping
     one without the other serves a stale file.
   -->
-  <link rel="stylesheet" href="styles.css?v=0.6.0">
+  <link rel="stylesheet" href="styles.css?v=0.6.1">
   <link rel="manifest" href="manifest.json">
 
   <meta name="theme-color" content="#12142A">
@@ -251,6 +251,28 @@
   </div>
 </div>
 
+<!-- ===================== Custom fast length ===================== -->
+<div class="sheet" id="custom-sheet" role="dialog" aria-modal="true" aria-labelledby="custom-title">
+  <div class="sheet-panel">
+    <div class="sheet-head">
+      <button class="sheet-action" type="button" id="custom-cancel">Cancel</button>
+      <div class="sheet-title" id="custom-title">Custom length</div>
+      <button class="sheet-action is-primary" type="button" id="custom-save">Save</button>
+    </div>
+
+    <div class="stepper">
+      <button class="stepper-btn" type="button" id="custom-minus" aria-label="Shorter">&minus;</button>
+      <div class="stepper-value">
+        <span id="custom-hours">16</span><span class="stepper-unit">hours</span>
+      </div>
+      <button class="stepper-btn" type="button" id="custom-plus" aria-label="Longer">+</button>
+    </div>
+    <div class="stepper-note" id="custom-note"></div>
+
+    <button class="btn btn-secondary" type="button" id="custom-off">Go back to a preset</button>
+  </div>
+</div>
+
 <!-- ===================== Stage timeline ===================== -->
 <div class="sheet" id="stages-sheet" role="dialog" aria-modal="true" aria-labelledby="stages-title">
   <div class="sheet-panel">
@@ -313,6 +335,6 @@
   </button>
 </nav>
 
-<script src="script.js?v=0.6.0" defer></script>
+<script src="script.js?v=0.6.1" defer></script>
 </body>
 </html>

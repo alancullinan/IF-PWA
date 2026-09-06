@@ -233,6 +233,72 @@ async function main() {
       () => document.getElementById('stages-sheet').classList.contains('is-open')), false);
     await page.evaluate(() => window.__ifTest.endFast());
 
+    console.log('\n  Custom fast length');
+    // This row existed in the markup from the scaffold but was never wired,
+    // and no test covered it - so the app shipped a settings row that did
+    // nothing at all.
+    check('the row starts off', await page.evaluate(async () => {
+      await window.__ifTest.setActivePlan('16-8');
+      return document.getElementById('custom-plan-value').textContent;
+    }), 'Off');
+
+    check('opening it starts from the current preset', await page.evaluate(() => {
+      window.__ifTest.openCustomSheet();
+      return document.getElementById('custom-hours').textContent;
+    }), '16');
+    check('the sheet is open', await page.evaluate(
+      () => document.getElementById('custom-sheet').classList.contains('is-open')), true);
+    check('stepping changes the draft', await page.evaluate(
+      () => window.__ifTest.nudgeCustomHours(1)), 17);
+    check('the note explains the eating window', await page.evaluate(
+      () => document.getElementById('custom-note').textContent),
+      'Leaves a 7h eating window');
+
+    check('saving selects it', await page.evaluate(async () => {
+      await window.__ifTest.setCustomPlan(17);
+      return window.__ifTest.appState.settings.activePlanId;
+    }), 'custom');
+    check('the row now shows the length', await page.evaluate(
+      () => document.getElementById('custom-plan-value').textContent), '17h');
+    check('no preset is selected', await page.evaluate(
+      () => [...document.querySelectorAll('.preset')]
+        .some((el) => el.getAttribute('aria-pressed') === 'true')), false);
+    check('the timer chip shows the ratio', await page.evaluate(
+      () => document.getElementById('plan-chip').textContent), '17:7');
+
+    console.log('\n  A custom length is a real goal, and it persists');
+    check('a new fast takes the custom hours', await page.evaluate(async () => {
+      const f = await window.__ifTest.startFast();
+      return { goal: f.goalHours, plan: f.planId };
+    }).then((r) => r.goal + '/' + r.plan), '17/custom');
+    await page.goto(ctx.base, { waitUntil: 'networkidle2' });
+    check('it survives a relaunch', await page.evaluate(
+      () => window.__ifTest.appState.settings.customHours), 17);
+    check('and is still selected', await page.evaluate(
+      () => document.getElementById('custom-plan-value').textContent), '17h');
+    check('history labels it from its own hours', await page.evaluate(async () => {
+      await window.__ifTest.endFast();
+      return document.querySelector('#history-list .plan').textContent;
+    }), '17:7');
+
+    console.log('\n  Switching back to a preset');
+    check('choosing a preset clears custom', await page.evaluate(async () => {
+      await window.__ifTest.setActivePlan('18-6');
+      return document.getElementById('custom-plan-value').textContent;
+    }), 'Off');
+    // The recorded fast must keep saying what it actually was.
+    check('the old custom fast keeps its label', await page.evaluate(
+      () => document.querySelector('#history-list .plan').textContent), '17:7');
+
+    console.log('\n  Lengths stay sane');
+    const clamp = (h) => page.evaluate((x) => window.__ifTest.clampCustomHours(x), h);
+    check('zero is refused', await clamp(0), 1);
+    check('and so is a fortnight', await clamp(400), 48);
+    check('fractions round', await clamp(16.6), 17);
+    check('nonsense falls back', await clamp('abc'), 16);
+    check('beyond a day drops the ratio', await page.evaluate(
+      () => window.__ifTest.customLabel(30)), '30h');
+
     console.log('\n  Stages are approximate but ordered');
     const stage = (h) => page.evaluate((x) => window.__ifTest.stageFor(x).name, h);
     check('just eaten', await stage(0.5), 'Fed');

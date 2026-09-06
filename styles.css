@@ -722,3 +722,49 @@ body {
    take the ground colour to stay visible against it. */
 .ring-tick { fill: var(--muted); }
 .ring-tick.is-passed { fill: var(--bg); opacity: 0.55; }
+
+/* ===== Custom length stepper ===== */
+.stepper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  background: var(--surface-2);
+  border-radius: var(--r-md);
+  padding: var(--sp-4);
+}
+.stepper-btn {
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--hairline);
+  background: transparent;
+  color: var(--text);
+  font-size: 26px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.stepper-btn:disabled { opacity: 0.35; }
+.stepper-value {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.stepper-value > span:first-child { font-size: 40px; font-weight: 500; }
+.stepper-unit { font-size: 15px; color: var(--secondary); }
+.stepper-note {
+  font-size: 14px;
+  color: var(--secondary);
+  text-align: center;
+}
+
+/* The custom row reads as selected in the same way a preset does. */
+.row-link[aria-pressed="true"] {
+  background: var(--accent-dim);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.row-link[aria-pressed="true"] .value { color: var(--accent); }
