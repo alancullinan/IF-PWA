@@ -6,6 +6,13 @@ Companion to `docs/RESEARCH.md`. Decisions there are settled; this is the build 
 no journal · no share cards · no water tracking · no food logging · no accounts,
 no server.
 
+> **MatchTracker is reference-only.** It is a working app in daily use, and it stays
+> exactly as it is. Every "port from MatchTracker" below means *read it and copy the
+> code into this repo* — never edit, refactor, extract or "improve" anything in the
+> MatchTrackerPWA working tree, and never make a shared library of the common parts.
+> A little duplication between the two apps is the correct trade: it keeps a change
+> here from being able to break a match on a Sunday.
+
 ---
 
 ## 0. The subpath constraint — get this right first
@@ -56,7 +63,7 @@ and the app must load. Nothing else is worth building until this is true.
 
 ## 1. Scaffold and storage
 
-Port from MatchTracker, renamed and stripped:
+Port from MatchTracker — copied out, renamed and stripped, leaving that repo untouched:
 
 - `index.html`, `styles.css` (+ `tailwind-minimal.css`), `script.js` as a single IIFE.
 - `StorageManager` — copy verbatim, change `DB_NAME` to `FastingDB`, store to `fasts`.
