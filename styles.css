@@ -637,3 +637,88 @@ body {
 
 /* A backup old enough that iOS may have evicted storage since. */
 .backup-when.is-stale { color: var(--accent); }
+
+/* ===== Stage timeline ===== */
+.stage-card { gap: var(--sp-3); }
+.stage-card .stage-text { flex: 1 1 auto; min-width: 0; }
+.stage-chevron { color: var(--muted); flex-shrink: 0; }
+
+.stage-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.stage-item {
+  display: flex;
+  gap: var(--sp-4);
+  align-items: flex-start;
+}
+/* The rail is drawn per row so the line stops cleanly at the last stage. */
+.stage-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  align-self: stretch;
+  flex-shrink: 0;
+  width: 12px;
+}
+.stage-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--track);
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+.stage-line {
+  width: 2px;
+  flex: 1 1 auto;
+  background: var(--track);
+  min-height: 18px;
+}
+.stage-body {
+  flex: 1 1 auto;
+  padding-bottom: var(--sp-4);
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+.stage-item:last-child .stage-body { padding-bottom: 0; }
+.stage-label { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.stage-title { font-size: 16px; color: var(--secondary); }
+.stage-when {
+  font-size: 14px;
+  color: var(--muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.stage-detail { font-size: 13px; color: var(--muted); line-height: 1.4; }
+
+/* Reached: the rail fills in behind you. */
+.stage-item.is-past .stage-dot,
+.stage-item.is-past .stage-line,
+.stage-item.is-current .stage-dot { background: var(--accent); }
+.stage-item.is-past .stage-title { color: var(--text); }
+
+.stage-item.is-current .stage-dot {
+  width: 14px;
+  height: 14px;
+  margin-top: 4px;
+  box-shadow: 0 0 0 4px rgba(255, 179, 122, 0.18);
+}
+.stage-item.is-current .stage-title { color: var(--text); font-weight: 500; }
+.stage-item.is-current .stage-when { color: var(--accent); }
+
+.stage-caveat {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.45;
+  margin: var(--sp-2) 0 0;
+}
+
+/* Stage marks on the ring band. Passed marks sit on the filled arc, so they
+   take the ground colour to stay visible against it. */
+.ring-tick { fill: var(--muted); }
+.ring-tick.is-passed { fill: var(--bg); opacity: 0.55; }

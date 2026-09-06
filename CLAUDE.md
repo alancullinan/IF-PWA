@@ -180,12 +180,14 @@ moves: muted text clears AA at 11px on the card surface, and the heatmap ramp
 is monotonic in luminance so a darker cell always means a shorter fast.
 
 Outcomes are never colour alone — a missed goal says "Short by 2h 00m" rather
-than turning red. Icons are inline SVG, never emoji. `tools/make-icons.py`
+than turning red. Stage timings are stated as approximations in the UI itself,
+because the hour boundaries are typical rather than measured and the app should
+not imply otherwise. Icons are inline SVG, never emoji. `tools/make-icons.py`
 generates the app icons with no image library.
 
 ## Not built
 
-Weight logging UI, and the metabolic stage timeline beyond the single card on
-the timer screen. Both are additive; `docs/PLAN.md` has them. Deliberately out
-of scope for good: notifications (impossible to schedule from a PWA — use the
+The weight logging UI is the only unbuilt phase; `docs/PLAN.md` has it, and the
+`weights` store and its data shape already exist. Deliberately out of scope for
+good: notifications (impossible to schedule from a PWA — use the
 phone's own alarms), food logging, AI coaching, accounts, Health app sync.

@@ -16,7 +16,7 @@
 
 // Bump together with the ?v= strings in index.html on every deploy. Neither
 // alone is enough: caches.match() keys on the full URL including the query.
-const CACHE_NAME = 'fasting-v0.5.1';
+const CACHE_NAME = 'fasting-v0.6.0';
 
 // The version the HTML asks for in its ?v= strings. Derived from CACHE_NAME so
 // the two cannot drift apart.

@@ -152,6 +152,87 @@ async function main() {
       return window.__ifTest.activeFast().goalHours;
     }), 18);
 
+    console.log('\n  The stage timeline places you on the whole sequence');
+    // 13h into a 16h fast: fed and post-meal are behind, burning fat is now,
+    // ketosis and deep fast are still ahead.
+    const timeline = await page.evaluate((h) => {
+      const started = Date.now() - h * 3600000;
+      const fast = { id: 't', startedAt: started, endedAt: null, goalHours: 16,
+        planId: '16-8', editedAt: null };
+      return window.__ifTest.stageTimeline(fast).map((r) => ({
+        name: r.name, state: r.state, at: r.at, fromHours: r.fromHours }));
+    }, 13);
+    check('every stage is listed', timeline.length, 5);
+    check('states run past then current then upcoming',
+      timeline.map((r) => r.state).join(','),
+      'past,past,current,upcoming,upcoming');
+    check('exactly one is current',
+      timeline.filter((r) => r.state === 'current').length, 1);
+    check('times are anchored to the start', await page.evaluate((h) => {
+      const started = Date.now() - h * 3600000;
+      const fast = { id: 't', startedAt: started, endedAt: null, goalHours: 16,
+        planId: '16-8', editedAt: null };
+      const rows = window.__ifTest.stageTimeline(fast);
+      return rows[3].at - fast.startedAt === 16 * 3600000;
+    }, 13), true);
+
+    console.log('\n  With nothing running the stages still make sense');
+    const idle = await page.evaluate(
+      () => window.__ifTest.stageTimeline(null).map((r) => r.state + ':' + r.at));
+    check('none is current or past', idle.join(','),
+      'upcoming:null,upcoming:null,upcoming:null,upcoming:null,upcoming:null');
+
+    console.log('\n  Ring ticks only mark boundaries inside the goal');
+    // A 16h goal contains the 4h and 12h boundaries; 24h has nowhere to sit.
+    check('two ticks on a 16h fast', await page.evaluate(() => {
+      const fast = { id: 'r', startedAt: Date.now() - 13 * 3600000, endedAt: null,
+        goalHours: 16, planId: '16-8', editedAt: null };
+      window.__ifTest.renderRingTicks(fast);
+      return document.querySelectorAll('#ring-ticks .ring-tick').length;
+    }), 2);
+    check('both are marked as passed at 13h', await page.evaluate(
+      () => document.querySelectorAll('#ring-ticks .ring-tick.is-passed').length), 2);
+    check('a 20h goal fits three', await page.evaluate(() => {
+      const fast = { id: 'r', startedAt: Date.now() - 2 * 3600000, endedAt: null,
+        goalHours: 20, planId: '20-4', editedAt: null };
+      window.__ifTest.renderRingTicks(fast);
+      return document.querySelectorAll('#ring-ticks .ring-tick').length;
+    }), 3);
+    check('and only the passed one is filled in', await page.evaluate(
+      () => document.querySelectorAll('#ring-ticks .ring-tick.is-passed').length), 0);
+    check('no ticks when nothing is running', await page.evaluate(() => {
+      window.__ifTest.renderRingTicks(null);
+      return document.querySelectorAll('#ring-ticks .ring-tick').length;
+    }), 0);
+
+    console.log('\n  Opening the timeline from the timer');
+    await page.evaluate(() => window.__ifTest.startFast());
+    await page.evaluate(() => document.getElementById('stage-card').click());
+    check('the sheet opens', await page.evaluate(
+      () => document.getElementById('stages-sheet').classList.contains('is-open')), true);
+    check('it lists every stage', await page.evaluate(
+      () => document.querySelectorAll('#stage-list .stage-item').length), 5);
+    check('the first stage is current on a fresh fast', await page.evaluate(
+      () => document.querySelector('#stage-list .stage-item').className
+        .includes('is-current')), true);
+    check('and reads as now rather than a clock time', await page.evaluate(
+      () => document.querySelector('#stage-list .stage-when').textContent), 'now');
+    // A clock time alone is ambiguous across midnight: a 24h stage on a fast
+    // begun at 00:06 also reads 00:06. Upcoming stages say how far off they are.
+    check('upcoming stages say how far away they are', await page.evaluate(
+      () => [...document.querySelectorAll('#stage-list .stage-item.is-upcoming .stage-when')]
+        .every((el) => el.textContent.startsWith('in '))), true);
+    // Matched loosely: the 24h stage on a fast started moments ago floors to
+    // 23h 59m, and pinning the exact minute would drift with the clock.
+    check('and the furthest stage is roughly a day out', await page.evaluate(
+      () => /^in 23h \d\dm$/.test(
+        document.querySelector('#stage-list .stage-item:last-child .stage-when')
+          .textContent)), true);
+    await page.evaluate(() => window.__ifTest.closeStageSheet());
+    check('and closes again', await page.evaluate(
+      () => document.getElementById('stages-sheet').classList.contains('is-open')), false);
+    await page.evaluate(() => window.__ifTest.endFast());
+
     console.log('\n  Stages are approximate but ordered');
     const stage = (h) => page.evaluate((x) => window.__ifTest.stageFor(x).name, h);
     check('just eaten', await stage(0.5), 'Fed');

@@ -203,13 +203,19 @@ List of entries plus an SVG trend line. Metric only.
 
 ---
 
-## 7. Metabolic stage timeline
+## 7. Metabolic stage timeline — BUILT
 
-Marks on the timer showing the approximate phase: fed 0-4h, glycogen depletion 4-12h,
-lipolysis ~12h, ketosis ~16-18h, autophagy ~24h.
+Stage boundaries are marked on the ring itself, which costs no vertical space on
+a screen that only just fits, and the stage card opens a sheet listing the whole
+sequence: past stages with the clock time they passed, the current one as "now",
+and upcoming ones as how far off they are.
 
-One quiet line of copy noting these are typical approximations, not a personal
-measurement. Not a legal disclaimer — just so I don't end up believing my own UI.
+Upcoming stages are relative rather than clock times on purpose. A 24h stage on
+a fast begun at 00:06 also reads 00:06, which looks like a bug rather than
+tomorrow - and "how long until ketosis" is the question being asked anyway.
+
+The sheet closes with a line noting these are typical timings and not a
+measurement. Not a legal disclaimer - just so I don't end up believing my own UI.
 
 ---
 
@@ -224,7 +230,7 @@ measurement. Not a legal disclaimer — just so I don't end up believing my own 
 | 4 | **Export / import** | **Round-trips a backup onto a different device** |
 | 5 | Stats + heatmap | — |
 | 6 | Weight log | — |
-| 7 | Stage timeline | — |
+| 7 | Stage timeline | Done |
 
 Phases 0-4 are the app. Everything after is worth having but not load-bearing.
 

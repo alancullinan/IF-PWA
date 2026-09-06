@@ -8,7 +8,7 @@
 (function () {
   'use strict';
 
-  const APP_VERSION = '0.5.1';
+  const APP_VERSION = '0.6.0';
 
   // ---------------------------------------------------------------- storage
 
@@ -320,6 +320,136 @@
     return plan;
   }
 
+  /**
+   * The stages laid out against a fast, so the timer can show where you are on
+   * the whole sequence rather than only which stage is current.
+   *
+   * With no fast running the stages still list, described by hour rather than
+   * by clock time - there is no start to count from yet.
+   */
+  function stageTimeline(fast, now) {
+    const when = now || Date.now();
+    const hours = fast ? elapsedMs(fast, when) / HOUR_MS : null;
+
+    return STAGES.map((stage, i) => {
+      const next = STAGES[i + 1];
+      const isCurrent = hours !== null
+        && hours >= stage.fromHours
+        && (!next || hours < next.fromHours);
+      const isPast = hours !== null && !isCurrent && hours >= stage.fromHours;
+      return {
+        name: stage.name,
+        note: stage.note,
+        fromHours: stage.fromHours,
+        at: fast ? fast.startedAt + stage.fromHours * HOUR_MS : null,
+        state: isCurrent ? 'current' : isPast ? 'past' : 'upcoming',
+      };
+    });
+  }
+
+  /**
+   * Stage boundaries marked on the ring band.
+   *
+   * Only boundaries that fall INSIDE the goal are drawn: the ring maps 0 to the
+   * goal, so a 24h stage on a 16h fast has nowhere to sit and a tick crammed at
+   * the end would misrepresent it. Marks the user has passed are drawn in the
+   * ground colour so they read against the filled arc; the rest sit on the
+   * track and take the muted tone.
+   */
+  function renderRingTicks(fast) {
+    const host = document.getElementById('ring-ticks');
+    if (!host) return;
+    host.textContent = '';
+    if (!fast) return;
+
+    const goalHours = fast.goalHours;
+    const elapsedHours = elapsedMs(fast) / HOUR_MS;
+    const NS = 'http://www.w3.org/2000/svg';
+
+    for (const stage of STAGES) {
+      if (stage.fromHours <= 0 || stage.fromHours >= goalHours) continue;
+      const fraction = stage.fromHours / goalHours;
+      const angle = fraction * 2 * Math.PI - Math.PI / 2;
+      const dot = document.createElementNS(NS, 'circle');
+      dot.setAttribute('cx', (120 + 100 * Math.cos(angle)).toFixed(2));
+      dot.setAttribute('cy', (120 + 100 * Math.sin(angle)).toFixed(2));
+      dot.setAttribute('r', '3');
+      dot.setAttribute('class',
+        'ring-tick' + (elapsedHours >= stage.fromHours ? ' is-passed' : ''));
+      host.appendChild(dot);
+    }
+  }
+
+  function renderStageSheet() {
+    const list = document.getElementById('stage-list');
+    if (!list) return;
+    const fast = activeFast();
+    const rows = stageTimeline(fast);
+
+    list.textContent = '';
+    rows.forEach((row, i) => {
+      const item = document.createElement('li');
+      item.className = 'stage-item is-' + row.state;
+
+      const rail = document.createElement('div');
+      rail.className = 'stage-rail';
+      const dot = document.createElement('span');
+      dot.className = 'stage-dot';
+      rail.appendChild(dot);
+      if (i < rows.length - 1) {
+        const line = document.createElement('span');
+        line.className = 'stage-line';
+        rail.appendChild(line);
+      }
+
+      const label = document.createElement('div');
+      label.className = 'stage-label';
+      const title = document.createElement('div');
+      title.className = 'stage-title';
+      title.textContent = row.name;
+      const detail = document.createElement('div');
+      detail.className = 'stage-detail';
+      detail.textContent = row.note;
+      label.append(title, detail);
+
+      const when = document.createElement('div');
+      when.className = 'stage-when';
+      when.textContent = describeStageTime(row, fast, Date.now());
+
+      const body = document.createElement('div');
+      body.className = 'stage-body';
+      body.append(label, when);
+
+      item.append(rail, body);
+      list.appendChild(item);
+    });
+  }
+
+  /**
+   * When a stage happened, or how far off it is.
+   *
+   * Past stages take a clock time because "when did I pass it" is a fact;
+   * upcoming ones take a relative time because "how long until ketosis" is the
+   * actual question, and because a clock time alone is ambiguous across
+   * midnight - a 24h stage on a fast begun at 00:06 also reads 00:06, which
+   * looked like a bug rather than the next day.
+   */
+  function describeStageTime(row, fast, now) {
+    if (row.state === 'current') return 'now';
+    if (!fast) return row.fromHours === 0 ? 'at the start' : 'from ' + row.fromHours + 'h';
+    if (row.state === 'past') return formatClock(row.at);
+    return 'in ' + formatDuration(row.at - (now || Date.now()));
+  }
+
+  function openStageSheet() {
+    renderStageSheet();
+    document.getElementById('stages-sheet').classList.add('is-open');
+  }
+
+  function closeStageSheet() {
+    document.getElementById('stages-sheet').classList.remove('is-open');
+  }
+
   // ---------------------------------------------------------------- render
 
   function renderTimer() {
@@ -348,6 +478,7 @@
       const card = document.getElementById('stage-card');
       if (card) card.classList.add('is-hidden');
       setRingProgress(0);
+      renderRingTicks(null);
       return;
     }
 
@@ -374,6 +505,11 @@
     if (card) card.classList.remove('is-hidden');
     if (btn) btn.textContent = 'End fast';
     setRingProgress(ms / goalMs);
+    renderRingTicks(fast);
+    // Keep an open sheet honest as the fast advances past a boundary.
+    if (document.getElementById('stages-sheet').classList.contains('is-open')) {
+      renderStageSheet();
+    }
   }
 
   function renderPresets() {
@@ -1054,6 +1190,13 @@
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden) renderTimer();
     });
+
+    const stageCard = document.getElementById('stage-card');
+    if (stageCard) stageCard.addEventListener('click', openStageSheet);
+    document.getElementById('stages-close').addEventListener('click', closeStageSheet);
+    document.getElementById('stages-sheet').addEventListener('click', (event) => {
+      if (event.target.id === 'stages-sheet') closeStageSheet();
+    });
   }
 
   // ---------------------------------------------------------------- heatmap
@@ -1391,6 +1534,11 @@
     formatClock,
     floorToMinute,
     stageFor,
+    stageTimeline,
+    renderRingTicks,
+    openStageSheet,
+    closeStageSheet,
+    describeStageTime,
     renderHistory,
     openFastEditor,
     closeFastEditor,
