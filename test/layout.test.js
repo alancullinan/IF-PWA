@@ -83,8 +83,28 @@ function checkBottomInsetOwnedOnce(check) {
     /clamp\(/.test(insetMargin) && /env\(safe-area-inset-bottom/.test(insetMargin), true);
 }
 
+/**
+ * The iOS status-bar style, checked statically.
+ *
+ * black-translucent makes iOS size the web view to screen-minus-status-bar but
+ * anchor it at the top, so the leftover appears as an unusable strip along the
+ * BOTTOM and the tab bar looks ~93pt high however correct the CSS is. Measured
+ * on hardware: a 793pt view on an 852pt screen, nav 34pt above the view's
+ * bottom and 93pt above the screen's. Nothing in the layout can compensate,
+ * because the pixels below simply are not ours to draw on.
+ */
+function checkStatusBarStyle(check) {
+  const html = fsSync.readFileSync(path.join(REPO, 'index.html'), 'utf8');
+  const style = (html.match(/apple-mobile-web-app-status-bar-style"\s+content="([^"]+)"/) || [])[1];
+  check('the status bar style is declared', typeof style === 'string', true);
+  check('and is not black-translucent', style === 'black-translucent', false);
+}
+
 async function main() {
   const { check, report } = makeChecker();
+
+  console.log('\n  The web view fills the screen');
+  checkStatusBarStyle(check);
 
   console.log('\n  The bottom inset is owned by exactly one element');
   checkBottomInsetOwnedOnce(check);

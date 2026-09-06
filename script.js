@@ -8,7 +8,7 @@
 (function () {
   'use strict';
 
-  const APP_VERSION = '0.3.5';
+  const APP_VERSION = '0.3.6';
 
   // ---------------------------------------------------------------- storage
 
@@ -180,11 +180,25 @@
     // A fresh view starts at the top rather than inheriting the last scroll.
     const active = document.getElementById(name + '-view');
     if (active) active.scrollTop = 0;
+
+    // Re-read the viewport whenever Settings is opened. Measuring once at
+    // startup reported inset 0/0 and an 8pt gap while the screenshot showed
+    // 34pt - iOS had not settled the viewport by the time init ran, so the
+    // readout was describing a layout that no longer existed.
+    if (name === 'settings') renderAbout();
   }
 
   function wireNav() {
     document.querySelectorAll('.tab').forEach((tab) => {
       tab.addEventListener('click', () => showView(tab.dataset.view));
+    });
+
+    // The viewport can change after load and on rotation; keep the readout
+    // honest rather than frozen at whatever startup happened to see.
+    ['resize', 'orientationchange'].forEach((event) => {
+      window.addEventListener(event, () => {
+        if (document.querySelector('#settings-view.is-active')) renderAbout();
+      });
     });
   }
 
