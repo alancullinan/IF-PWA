@@ -8,7 +8,7 @@
 (function () {
   'use strict';
 
-  const APP_VERSION = '0.1.0';
+  const APP_VERSION = '0.2.0';
 
   // ---------------------------------------------------------------- storage
 
@@ -481,18 +481,57 @@
   // ---------------------------------------------------------------- sw
 
   /**
-   * Register the service worker.
+   * Register the service worker and keep it up to date.
    *
    * 'sw.js' is deliberately relative: from …/IF-PWA/ it resolves to
    * …/IF-PWA/sw.js and takes a default scope of …/IF-PWA/, which is exactly
    * the app. A leading slash would ask for a worker at the origin root, which
    * 404s here and would control the wrong scope if it did not.
+   *
+   * The browser does check for a new worker on navigation by itself, and the
+   * upgrade suite passes with these update() calls removed - so they are a
+   * convergence aid, not the mechanism. They earn their place anyway: the
+   * check can take several seconds, and an INSTALLED PWA is resumed far more
+   * often than it is navigated, so the visibility check is the one that
+   * matters on a phone. The controllerchange reload is the real win: without
+   * it a new version sits cached until the next launch.
    */
   function registerServiceWorker() {
     if (!('serviceWorker' in navigator)) return;
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('sw.js').catch((err) => {
+
+    // Whether this page load started under an existing worker. On a first ever
+    // visit there is none, and the initial claim must not trigger a reload.
+    const hadController = !!navigator.serviceWorker.controller;
+    let reloading = false;
+
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!hadController || reloading) return;
+      // A new worker has taken over, so newer code is already cached. Reload
+      // once to run it now rather than on some later launch.
+      reloading = true;
+      window.location.reload();
+    });
+
+    window.addEventListener('load', async () => {
+      let registration;
+      try {
+        registration = await navigator.serviceWorker.register('sw.js');
+      } catch (err) {
         console.error('Service worker registration failed:', err);
+        return;
+      }
+
+      registration.update();
+
+      // An installed PWA can go a long time without a fresh navigation - it is
+      // resumed, not reopened - so check again when it comes back to the fore.
+      // Throttled because this fires on every app switch.
+      let lastCheck = Date.now();
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) return;
+        if (Date.now() - lastCheck < 60000) return;
+        lastCheck = Date.now();
+        registration.update();
       });
     });
   }

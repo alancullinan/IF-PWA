@@ -101,7 +101,7 @@ function startServer(state, port) {
 /** Boot a temp copy of the app on `port`. Caller must call ctx.close(). */
 async function boot(port) {
   const tmp = await fsp.mkdtemp(path.join(os.tmpdir(), 'fasting-test-'));
-  await materialise(tmp);
+  const root = await materialise(tmp);
   const state = { dir: tmp, offline: false };
   const server = await startServer(state, port);
   const browser = await puppeteer.launch({
@@ -111,6 +111,8 @@ async function boot(port) {
   return {
     state,
     browser,
+    // The served copy of the app, which a test may rewrite to fake a deploy.
+    root,
     base: `http://localhost:${port}${MOUNT}/`,
     async close() {
       await browser.close();

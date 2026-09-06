@@ -1,13 +1,14 @@
 {
   "name": "fasting-pwa",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Test tooling only. The app itself is a zero-dependency vanilla PWA with no build step - nothing here is shipped to the browser.",
   "scripts": {
-    "test": "node test/offline.test.js && node test/storage.test.js && node test/timer.test.js",
+    "test": "node test/offline.test.js && node test/storage.test.js && node test/timer.test.js && node test/upgrade.test.js",
     "test:offline": "node test/offline.test.js",
     "test:storage": "node test/storage.test.js",
-    "test:timer": "node test/timer.test.js"
+    "test:timer": "node test/timer.test.js",
+    "test:upgrade": "node test/upgrade.test.js"
   },
   "devDependencies": {
     "puppeteer": "^24.0.0"
