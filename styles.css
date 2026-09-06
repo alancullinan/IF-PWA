@@ -439,9 +439,14 @@ button { font-family: inherit; cursor: pointer; }
   background: var(--surface);
   border-radius: var(--r-lg);
   padding: var(--sp-3) 10px;
-  /* max(), not addition: on a phone with a home indicator the inset already
-     is the gap, and on one without it there is still a small margin. */
-  margin: var(--sp-3) var(--sp-6) max(var(--sp-2), env(safe-area-inset-bottom));
+  /*
+   * clamp(), not max(). On a real iPhone 15 Pro this inset was measured
+   * reporting ~93pt rather than the 34pt a home indicator needs, which floated
+   * the nav most of an inch off the bottom. The floor keeps a margin on phones
+   * that report nothing; the ceiling is the tallest home indicator there is, so
+   * an over-large inset can no longer drag the whole app upward.
+   */
+  margin: var(--sp-3) var(--sp-6) clamp(var(--sp-2), env(safe-area-inset-bottom), 34px);
   flex: 0 0 auto;
 }
 .tab {
@@ -615,3 +620,12 @@ button { font-family: inherit; cursor: pointer; }
 }
 .about-note { font-size: 13px; color: var(--secondary); line-height: 1.4; }
 .about-note.is-good { color: var(--accent); }
+
+/* The diagnostic line is a readout, not prose: keep the digits aligned and
+   let it wrap rather than overflow on a narrow phone. */
+.about-diag {
+  font-size: 12px;
+  text-align: right;
+  max-width: 62%;
+  line-height: 1.4;
+}

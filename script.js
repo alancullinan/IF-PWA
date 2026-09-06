@@ -8,7 +8,7 @@
 (function () {
   'use strict';
 
-  const APP_VERSION = '0.3.3';
+  const APP_VERSION = '0.3.4';
 
   // ---------------------------------------------------------------- storage
 
@@ -636,6 +636,44 @@
   function renderAbout() {
     const el = document.getElementById('app-version');
     if (el) el.textContent = APP_VERSION;
+    const diag = document.getElementById('app-diagnostics');
+    if (diag) diag.textContent = describeViewport();
+  }
+
+  /**
+   * What the browser actually reports about the window it gave us.
+   *
+   * env() is only readable through a real element, and its values turned out
+   * not to match the documented ones on hardware - a bottom inset measured
+   * near 93pt on a phone whose home indicator needs 34. Guessing at that from
+   * screenshots cost two wrong fixes, so the app states it instead.
+   */
+  function measureInsets() {
+    const probe = document.createElement('div');
+    probe.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;'
+      + 'padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);';
+    document.body.appendChild(probe);
+    const style = getComputedStyle(probe);
+    const insets = {
+      top: Math.round(parseFloat(style.paddingTop) || 0),
+      bottom: Math.round(parseFloat(style.paddingBottom) || 0),
+    };
+    probe.remove();
+    return insets;
+  }
+
+  function describeViewport() {
+    const insets = measureInsets();
+    const standalone = window.matchMedia('(display-mode: standalone)').matches
+      || window.navigator.standalone === true;
+    const nav = document.querySelector('.tabbar');
+    const gap = nav
+      ? Math.round(window.innerHeight - nav.getBoundingClientRect().bottom)
+      : null;
+    return window.innerWidth + '\u00d7' + window.innerHeight
+      + ' · inset ' + insets.top + '/' + insets.bottom
+      + ' · gap ' + gap
+      + ' · ' + (standalone ? 'installed' : 'browser');
   }
 
   async function checkForUpdate() {
@@ -941,6 +979,8 @@
     fastsNewestFirst,
     renderAbout,
     checkForUpdate,
+    measureInsets,
+    describeViewport,
     loadAppState,
     saveAppState,
     STORAGE_KEYS,

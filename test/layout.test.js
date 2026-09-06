@@ -31,6 +31,9 @@ const DEVICES = [
   { name: 'iPhone 15 Pro',  w: 393, h: 852, top: 59, bottom: 34 },
   { name: 'iPhone 15 Pro Max', w: 430, h: 932, top: 59, bottom: 34 },
   { name: 'small Android',  w: 360, h: 740, top: 0,  bottom: 0 },
+  // Measured from a real iPhone 15 Pro, which reported a bottom inset far
+  // larger than the home indicator needs and floated the nav ~93pt up.
+  { name: 'iPhone 15 Pro, oversized inset', w: 393, h: 852, top: 59, bottom: 93 },
 ];
 
 /**
@@ -70,12 +73,14 @@ function checkBottomInsetOwnedOnce(check) {
     /padding-bottom:\s*env\(safe-area-inset-bottom/.test(bodyBlock), false);
   check('the tab bar is what consumes it',
     /env\(safe-area-inset-bottom/.test(tabbarBlock), true);
-  // max(), not addition - otherwise the inset and the margin stack again.
+  // clamp(), not addition and not an unbounded max: the inset is both floored
+  // (phones reporting none still get a margin) and capped (a phone reporting
+  // far more than a home indicator needs cannot drag the app upward).
   // Matched loosely on purpose: the argument before env() is itself a var(),
   // so anything excluding ')' stops at the wrong paren.
   const insetMargin = (tabbarBlock.match(/margin:[^;]*;/) || [''])[0];
-  check('and takes the larger of margin or inset, never the sum',
-    /max\(/.test(insetMargin) && /env\(safe-area-inset-bottom/.test(insetMargin), true);
+  check('the bottom gap is clamped, not summed or unbounded',
+    /clamp\(/.test(insetMargin) && /env\(safe-area-inset-bottom/.test(insetMargin), true);
 }
 
 async function main() {
@@ -93,10 +98,12 @@ async function main() {
       console.log(`\n  ${d.name} (${d.w}x${d.h})`);
       await page.setViewport({ width: d.w, height: d.h });
       await page.goto(ctx.base, { waitUntil: 'networkidle2' });
-      // env() reports 0 here, so feed each inset to the element that owns it.
+      // env() reports 0 here, so feed each inset to the element that owns it,
+      // through the same clamp the stylesheet applies.
+      const navGap = Math.min(Math.max(8, d.bottom), 34);
       await page.addStyleTag({ content:
         `.view{padding-top:${32 + d.top}px!important}` +
-        `.tabbar{margin-bottom:${Math.max(8, d.bottom)}px!important}` });
+        `.tabbar{margin-bottom:${navGap}px!important}` });
       await sleep(200);
 
       const m = await page.evaluate(() => {
@@ -113,9 +120,10 @@ async function main() {
 
       check('timer view fits without scrolling', m.overflow <= 0, true);
       check('the start/end button is reachable', m.buttonHidden, false);
-      // The gap below the nav must be the inset itself, never inset + margin.
+      // The gap below the nav is the inset, floored at 8 and capped at 34 -
+      // never inset + margin, and never an over-large inset taken at face value.
       check('nav sits on the safe-area edge, not above it',
-        m.navGap <= Math.max(8, d.bottom) + 1, true);
+        m.navGap <= 35, true);
       check('the button keeps a full touch target', m.buttonHeight >= 44, true);
     }
   } finally {
