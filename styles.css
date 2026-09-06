@@ -600,3 +600,18 @@ button { font-family: inherit; cursor: pointer; }
   border-color: var(--danger);
   font-weight: 600;
 }
+
+/* ===== About ===== */
+.about-card { display: flex; flex-direction: column; gap: var(--sp-4); padding: 18px; }
+.about-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 16px;
+}
+.about-value {
+  font-variant-numeric: tabular-nums;
+  color: var(--secondary);
+}
+.about-note { font-size: 13px; color: var(--secondary); line-height: 1.4; }
+.about-note.is-good { color: var(--accent); }

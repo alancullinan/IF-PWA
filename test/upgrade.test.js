@@ -165,6 +165,12 @@ async function main() {
     check('and the surviving cache is the new one', await page.evaluate(
       async () => (await caches.keys())[0]), `fasting-v${NEW}`);
 
+    console.log('\n  The running version is visible in the app');
+    // Without this the only way to tell a bug from a stale cache is guesswork.
+    await page.evaluate(() => window.__ifTest.showView('settings'));
+    check('Settings reports the build that is running', await page.evaluate(
+      () => document.getElementById('app-version').textContent), NEW);
+
     console.log('\n  The upgraded app still works offline');
     ctx.state.offline = true;
     await page.goto(ctx.base, { waitUntil: 'domcontentloaded' });

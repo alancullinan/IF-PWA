@@ -17,7 +17,7 @@
     caches.match() keys on the full URL including the query string, so bumping
     one without the other serves a stale file.
   -->
-  <link rel="stylesheet" href="styles.css?v=0.3.2">
+  <link rel="stylesheet" href="styles.css?v=0.3.3">
   <link rel="manifest" href="manifest.json">
 
   <meta name="theme-color" content="#12142A">
@@ -192,6 +192,21 @@
         <button class="btn btn-secondary" type="button" id="import-btn">Import backup</button>
       </div>
     </div>
+
+    <div class="settings-group">
+      <div class="section-label">About</div>
+      <div class="card about-card">
+        <div class="about-row">
+          <span>Version</span>
+          <span class="about-value" id="app-version">–</span>
+        </div>
+        <button class="btn btn-secondary" type="button" id="check-update-btn">Check for update</button>
+        <div class="about-note" id="update-status">
+          An installed app can keep running a cached version. If this number is
+          behind, quit the app from the app switcher and open it again.
+        </div>
+      </div>
+    </div>
   </section>
 
 </div>
@@ -256,6 +271,6 @@
   </button>
 </nav>
 
-<script src="script.js?v=0.3.2" defer></script>
+<script src="script.js?v=0.3.3" defer></script>
 </body>
 </html>

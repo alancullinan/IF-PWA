@@ -8,7 +8,7 @@
 (function () {
   'use strict';
 
-  const APP_VERSION = '0.3.2';
+  const APP_VERSION = '0.3.3';
 
   // ---------------------------------------------------------------- storage
 
@@ -626,6 +626,47 @@
     return saved;
   }
 
+  /**
+   * Show which build is actually running, and offer a manual update check.
+   *
+   * An installed PWA can sit on a cached version for a long time, and without
+   * this there is no way to tell a bug from a stale copy - which cost a full
+   * round trip of guessing once already.
+   */
+  function renderAbout() {
+    const el = document.getElementById('app-version');
+    if (el) el.textContent = APP_VERSION;
+  }
+
+  async function checkForUpdate() {
+    const status = document.getElementById('update-status');
+    const say = (message, good) => {
+      if (!status) return;
+      status.textContent = message;
+      status.classList.toggle('is-good', !!good);
+    };
+
+    if (!('serviceWorker' in navigator)) { say('Updates are not available here.'); return false; }
+    const registration = await navigator.serviceWorker.getRegistration();
+    if (!registration) { say('Not installed as an app, so there is nothing to update.'); return false; }
+
+    say('Checking…');
+    try {
+      await registration.update();
+    } catch {
+      say('Could not reach the server. Try again on a connection.');
+      return false;
+    }
+    // A waiting or installing worker means a newer build is on its way in; the
+    // controllerchange handler reloads into it.
+    if (registration.installing || registration.waiting) {
+      say('A new version is installing. The app will reload in a moment.');
+      return true;
+    }
+    say('You are on the latest version.', true);
+    return false;
+  }
+
   function wireHistory() {
     const list = document.getElementById('history-list');
     if (list) {
@@ -670,6 +711,9 @@
     document.getElementById('fast-editor').addEventListener('click', (event) => {
       if (event.target.id === 'fast-editor') closeFastEditor();
     });
+
+    const updateBtn = document.getElementById('check-update-btn');
+    if (updateBtn) updateBtn.addEventListener('click', checkForUpdate);
   }
 
   // ---------------------------------------------------------------- ticking
@@ -850,6 +894,7 @@
     renderPresets();
     renderTimer();
     renderHistory();
+    renderAbout();
     if (activeFast()) startTicking();
   }
 
@@ -894,6 +939,8 @@
     toLocalInputValue,
     fromLocalInputValue,
     fastsNewestFirst,
+    renderAbout,
+    checkForUpdate,
     loadAppState,
     saveAppState,
     STORAGE_KEYS,
