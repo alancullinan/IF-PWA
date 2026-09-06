@@ -1,6 +1,6 @@
 {
   "name": "fasting-pwa",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "private": true,
   "description": "Test tooling only. The app itself is a zero-dependency vanilla PWA with no build step - nothing here is shipped to the browser.",
   "scripts": {

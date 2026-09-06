@@ -299,6 +299,26 @@ async function main() {
     check('beyond a day drops the ratio', await page.evaluate(
       () => window.__ifTest.customLabel(30)), '30h');
 
+    console.log('\n  Each stage description describes that stage');
+    /*
+     * The notes were written for the single stage card, where a forward-looking
+     * hint made sense, and reused verbatim as timeline rows - where "Ketosis
+     * usually begins near 16h" sat under the heading "Burning fat" and simply
+     * described the wrong stage. A row's description naming a DIFFERENT stage
+     * is the shape of that mistake, so it is worth catching structurally.
+     */
+    check('no note names a different stage', await page.evaluate(() => {
+      const rows = window.__ifTest.stageTimeline(null);
+      const names = rows.map((r) => r.name);
+      const offenders = rows.filter((row) => names
+        .filter((n) => n !== row.name)
+        .some((other) => new RegExp('\\b' + other + '\\b', 'i').test(row.note)));
+      return offenders.map((r) => r.name).join(',');
+    }), '');
+    check('every stage has a description', await page.evaluate(
+      () => window.__ifTest.stageTimeline(null)
+        .every((r) => typeof r.note === 'string' && r.note.length > 8)), true);
+
     console.log('\n  Stages are approximate but ordered');
     const stage = (h) => page.evaluate((x) => window.__ifTest.stageFor(x).name, h);
     check('just eaten', await stage(0.5), 'Fed');

@@ -8,7 +8,7 @@
 (function () {
   'use strict';
 
-  const APP_VERSION = '0.6.2';
+  const APP_VERSION = '0.6.3';
 
   // ---------------------------------------------------------------- storage
 
@@ -253,12 +253,24 @@
    * activity - the commercial apps state them as fact, which is worth not
    * copying. The copy says "usually" and "around" on purpose.
    */
+  /*
+   * Each note describes ITS OWN stage.
+   *
+   * These were first written for the single stage card, where only one stage is
+   * visible and a forward-looking hint was useful - "Ketosis usually begins near
+   * 16h" sat under "Burning fat". Read as a row in the timeline that is simply
+   * wrong: it describes the next stage rather than this one. The timeline says
+   * what is coming, with times, so no note needs to.
+   *
+   * The hedging lives in the sheet's closing line rather than in the rows, so a
+   * row does not spend its one line of description on a caveat.
+   */
   const STAGES = [
-    { fromHours: 0,  name: 'Fed',          note: 'Digesting your last meal' },
-    { fromHours: 4,  name: 'Post-meal',    note: 'Running on stored glucose' },
-    { fromHours: 12, name: 'Burning fat',  note: 'Ketosis usually begins near 16h' },
-    { fromHours: 16, name: 'Ketosis',      note: 'Roughly - it varies by person' },
-    { fromHours: 24, name: 'Deep fast',    note: 'Autophagy markers rise around here' },
+    { fromHours: 0,  name: 'Fed',         note: 'Digesting your last meal' },
+    { fromHours: 4,  name: 'Post-meal',   note: 'Insulin falling, running on stored glucose' },
+    { fromHours: 12, name: 'Burning fat', note: 'Glycogen low, so fat is broken down for fuel' },
+    { fromHours: 16, name: 'Ketosis',     note: 'Ketones becoming a main fuel' },
+    { fromHours: 24, name: 'Deep fast',   note: 'Autophagy markers rise' },
   ];
 
   function stageFor(hours) {
