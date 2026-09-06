@@ -8,7 +8,7 @@
 (function () {
   'use strict';
 
-  const APP_VERSION = '0.2.0';
+  const APP_VERSION = '0.3.0';
 
   // ---------------------------------------------------------------- storage
 
@@ -292,6 +292,7 @@
     await saveAppState('fasts');
     startTicking();
     renderTimer();
+    renderHistory();
     return fast;
   }
 
@@ -302,6 +303,7 @@
     await saveAppState('fasts');
     stopTicking();
     renderTimer();
+    renderHistory();
     return fast;
   }
 
@@ -372,6 +374,301 @@
     const active = appState.settings.activePlanId;
     document.querySelectorAll('.preset').forEach((el) => {
       el.setAttribute('aria-pressed', String(el.dataset.plan === active));
+    });
+  }
+
+  // ---------------------------------------------------------------- history
+
+  /**
+   * Local date/time in the form <input type="datetime-local"> expects.
+   *
+   * Built from local components deliberately: toISOString() is UTC and would
+   * show an Irish evening fast as having started an hour earlier in summer.
+   */
+  function toLocalInputValue(timestamp) {
+    const d = new Date(timestamp);
+    const pad = (n) => String(n).padStart(2, '0');
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
+      + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+
+  /** Parse that back. A value with no zone is read as local time, which is what we want. */
+  function fromLocalInputValue(value) {
+    if (!value) return null;
+    const ms = new Date(value).getTime();
+    return Number.isNaN(ms) ? null : ms;
+  }
+
+  const fastDurationMs = (fast) => elapsedMs(fast);
+
+  /**
+   * Check a proposed pair of timestamps.
+   *
+   * Returns an error string, or null when the edit is allowed. The overlap
+   * rule matters more than it looks: two fasts covering the same hours would
+   * quietly double-count in every statistic later.
+   */
+  function validateFastTimes(fastId, startedAt, endedAt) {
+    const now = Date.now();
+    if (startedAt === null) return 'Give a start time.';
+    if (startedAt > now) return 'A fast cannot start in the future.';
+    if (endedAt !== null) {
+      if (endedAt > now) return 'A fast cannot end in the future.';
+      if (endedAt <= startedAt) return 'The end has to come after the start.';
+    }
+    const finish = endedAt === null ? now : endedAt;
+    const clash = appState.fasts.find((f) => {
+      if (f.id === fastId) return false;
+      const otherFinish = f.endedAt === null ? now : f.endedAt;
+      return startedAt < otherFinish && f.startedAt < finish;
+    });
+    if (clash) return 'That overlaps another fast on ' + formatDayLabel(clash.startedAt) + '.';
+    return null;
+  }
+
+  /** "Wed 3 Sep" */
+  function formatDayLabel(timestamp) {
+    return new Date(timestamp).toLocaleDateString(undefined, {
+      weekday: 'short', day: 'numeric', month: 'short',
+    });
+  }
+
+  /** "September", or "September 2025" when it is not the current year. */
+  function formatMonthLabel(timestamp) {
+    const d = new Date(timestamp);
+    const sameYear = d.getFullYear() === new Date().getFullYear();
+    return d.toLocaleDateString(undefined, sameYear
+      ? { month: 'long' }
+      : { month: 'long', year: 'numeric' });
+  }
+
+  /** Newest first. */
+  function fastsNewestFirst() {
+    return appState.fasts.slice().sort((a, b) => b.startedAt - a.startedAt);
+  }
+
+  function renderHistory() {
+    const list = document.getElementById('history-list');
+    const empty = document.getElementById('history-empty');
+    const count = document.getElementById('history-count');
+    if (!list) return;
+
+    const fasts = fastsNewestFirst();
+    const finished = fasts.filter((f) => f.endedAt !== null);
+
+    if (count) {
+      count.textContent = finished.length === 1 ? '1 fast' : finished.length + ' fasts';
+    }
+    if (empty) empty.classList.toggle('is-shown', fasts.length === 0);
+
+    list.textContent = '';
+    let lastMonth = null;
+
+    for (const fast of fasts) {
+      const month = formatMonthLabel(fast.startedAt);
+      if (month !== lastMonth) {
+        const heading = document.createElement('div');
+        heading.className = 'section-label';
+        heading.textContent = month;
+        list.appendChild(heading);
+        lastMonth = month;
+      }
+      list.appendChild(buildFastRow(fast));
+    }
+  }
+
+  function buildFastRow(fast) {
+    const goalMs = fast.goalHours * HOUR_MS;
+    const ms = fastDurationMs(fast);
+    const running = fast.endedAt === null;
+    const met = ms >= goalMs;
+
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'card fast-row is-editable';
+    row.dataset.fastId = fast.id;
+
+    const top = document.createElement('div');
+    top.className = 'fast-row-top';
+    const duration = document.createElement('div');
+    duration.className = 'fast-duration';
+    duration.textContent = formatDuration(ms);
+    const chip = document.createElement('div');
+    // Never colour alone: the chip says what happened in words.
+    if (running) {
+      chip.className = 'chip chip-short';
+      chip.textContent = 'Running';
+    } else if (met) {
+      chip.className = 'chip chip-met';
+      chip.textContent = 'Goal met';
+    } else {
+      chip.className = 'chip chip-short';
+      chip.textContent = 'Short by ' + formatDuration(goalMs - ms);
+    }
+    top.append(duration, chip);
+
+    const bar = document.createElement('div');
+    bar.className = 'bar' + (met ? '' : ' is-short');
+    const fill = document.createElement('span');
+    fill.style.width = Math.min(100, (ms / goalMs) * 100) + '%';
+    bar.appendChild(fill);
+
+    const foot = document.createElement('div');
+    foot.className = 'fast-row-foot';
+    const when = document.createElement('div');
+    when.textContent = formatDayLabel(fast.startedAt) + ' · ' + formatClock(fast.startedAt)
+      + ' → ' + (running ? 'now' : formatClock(fast.endedAt));
+    const plan = document.createElement('div');
+    plan.className = 'plan';
+    plan.textContent = planById(fast.planId).label + (fast.editedAt ? ' · edited' : '');
+    foot.append(when, plan);
+
+    row.append(top, bar, foot);
+    return row;
+  }
+
+  // ---------------------------------------------------------------- editing
+
+  let editingFastId = null;
+  // Delete is irreversible and there is no undo, so it takes two taps. The
+  // button states the consequence on the second one rather than just arming.
+  let deleteArmed = false;
+
+  function openFastEditor(fastId) {
+    const fast = appState.fasts.find((f) => f.id === fastId);
+    if (!fast) return;
+    editingFastId = fastId;
+
+    const running = fast.endedAt === null;
+    document.getElementById('edit-started').value = toLocalInputValue(fast.startedAt);
+    document.getElementById('edit-ended').value = running ? '' : toLocalInputValue(fast.endedAt);
+    document.getElementById('edit-ended-field').classList.toggle('is-hidden', running);
+    document.getElementById('edit-running-note').classList.toggle('is-shown', running);
+    document.getElementById('fast-editor-title').textContent = running
+      ? 'Edit running fast' : 'Edit fast';
+
+    showEditError(null);
+    updateEditSummary();
+    disarmDelete();
+    document.getElementById('fast-editor').classList.add('is-open');
+  }
+
+  function closeFastEditor() {
+    editingFastId = null;
+    disarmDelete();
+    document.getElementById('fast-editor').classList.remove('is-open');
+  }
+
+  function disarmDelete() {
+    deleteArmed = false;
+    const btn = document.getElementById('fast-editor-delete');
+    if (btn) {
+      btn.textContent = 'Delete this fast';
+      btn.classList.remove('is-armed');
+    }
+  }
+
+  function showEditError(message) {
+    const el = document.getElementById('edit-error');
+    el.textContent = message || '';
+    el.classList.toggle('is-shown', !!message);
+  }
+
+  /** Live duration readout, so the effect of an edit is visible before saving. */
+  function updateEditSummary() {
+    const el = document.getElementById('edit-summary');
+    if (!el) return;
+    const startedAt = fromLocalInputValue(document.getElementById('edit-started').value);
+    const endedRaw = document.getElementById('edit-ended').value;
+    const endedAt = endedRaw ? fromLocalInputValue(endedRaw) : null;
+    if (startedAt === null) { el.textContent = ''; return; }
+    const finish = endedAt === null ? Date.now() : endedAt;
+    el.textContent = finish > startedAt
+      ? formatDuration(finish - startedAt) + (endedAt === null ? ' so far' : '')
+      : '';
+  }
+
+  async function saveFastEdit() {
+    const fast = appState.fasts.find((f) => f.id === editingFastId);
+    if (!fast) return false;
+
+    const startedAt = fromLocalInputValue(document.getElementById('edit-started').value);
+    const running = fast.endedAt === null;
+    const endedRaw = document.getElementById('edit-ended').value;
+    const endedAt = running ? null : fromLocalInputValue(endedRaw);
+
+    const error = validateFastTimes(fast.id, startedAt, endedAt);
+    if (error) { showEditError(error); return false; }
+
+    fast.startedAt = startedAt;
+    if (!running) fast.endedAt = endedAt;
+    // Mark it so history stays honest about which times were adjusted.
+    fast.editedAt = Date.now();
+
+    const saved = await saveAppState('fasts');
+    if (!saved) { showEditError('Could not save that change.'); return false; }
+
+    closeFastEditor();
+    renderTimer();
+    renderHistory();
+    return true;
+  }
+
+  async function deleteFast(fastId) {
+    const index = appState.fasts.findIndex((f) => f.id === fastId);
+    if (index === -1) return false;
+    appState.fasts.splice(index, 1);
+    const saved = await saveAppState('fasts');
+    stopTicking();
+    if (activeFast()) startTicking();
+    renderTimer();
+    renderHistory();
+    return saved;
+  }
+
+  function wireHistory() {
+    const list = document.getElementById('history-list');
+    if (list) {
+      // Delegated: rows are rebuilt on every render.
+      list.addEventListener('click', (event) => {
+        const row = event.target.closest('.fast-row');
+        if (row) openFastEditor(row.dataset.fastId);
+      });
+    }
+
+    const startCard = document.getElementById('edit-start-btn');
+    if (startCard) {
+      startCard.addEventListener('click', () => {
+        const fast = activeFast();
+        if (fast) openFastEditor(fast.id);
+      });
+    }
+
+    document.getElementById('fast-editor-cancel')
+      .addEventListener('click', closeFastEditor);
+    document.getElementById('fast-editor-save')
+      .addEventListener('click', saveFastEdit);
+    document.getElementById('fast-editor-delete').addEventListener('click', async (event) => {
+      if (editingFastId === null) return;
+      if (!deleteArmed) {
+        deleteArmed = true;
+        event.currentTarget.textContent = 'Tap again to delete for good';
+        event.currentTarget.classList.add('is-armed');
+        return;
+      }
+      const id = editingFastId;
+      closeFastEditor();
+      await deleteFast(id);
+    });
+
+    ['edit-started', 'edit-ended'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('input', () => { showEditError(null); updateEditSummary(); });
+    });
+
+    // Tapping the dimmed backdrop dismisses, as a sheet should.
+    document.getElementById('fast-editor').addEventListener('click', (event) => {
+      if (event.target.id === 'fast-editor') closeFastEditor();
     });
   }
 
@@ -541,6 +838,7 @@
   async function init() {
     wireNav();
     wireTimer();
+    wireHistory();
     showView('timer');
     renderHeatmap(placeholderHeatLevels());
 
@@ -551,6 +849,7 @@
     // the fast's start timestamp is all the state there is.
     renderPresets();
     renderTimer();
+    renderHistory();
     if (activeFast()) startTicking();
   }
 
@@ -585,6 +884,16 @@
     formatClock,
     floorToMinute,
     stageFor,
+    renderHistory,
+    openFastEditor,
+    closeFastEditor,
+    saveFastEdit,
+    deleteFast,
+    disarmDelete,
+    validateFastTimes,
+    toLocalInputValue,
+    fromLocalInputValue,
+    fastsNewestFirst,
     loadAppState,
     saveAppState,
     STORAGE_KEYS,

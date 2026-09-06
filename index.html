@@ -17,7 +17,7 @@
     caches.match() keys on the full URL including the query string, so bumping
     one without the other serves a stale file.
   -->
-  <link rel="stylesheet" href="styles.css?v=0.2.0">
+  <link rel="stylesheet" href="styles.css?v=0.3.0">
   <link rel="manifest" href="manifest.json">
 
   <meta name="theme-color" content="#12142A">
@@ -72,10 +72,10 @@
     </div>
 
     <div class="pair">
-      <div class="card">
-        <div class="label">Started</div>
+      <button class="card card-button" type="button" id="edit-start-btn">
+        <div class="label">Started<span class="edit-hint" aria-hidden="true"> · edit</span></div>
         <div class="value" id="started-at">20:12</div>
-      </div>
+      </button>
       <div class="card">
         <div class="label">Ends</div>
         <div class="value" id="ends-at">12:12</div>
@@ -93,44 +93,10 @@
       <h1 class="view-title">History</h1>
       <div class="meta" id="history-count">42 fasts</div>
     </div>
-    <div class="history-list" id="history-list">
-      <div class="section-label">September</div>
-
-      <button class="card fast-row" type="button">
-        <div class="fast-row-top">
-          <div class="fast-duration">16h 24m</div>
-          <div class="chip chip-met">Goal met</div>
-        </div>
-        <div class="bar"><span style="width:100%"></span></div>
-        <div class="fast-row-foot">
-          <div>Wed 3 Sep · 20:12 → 12:36</div>
-          <div class="plan">16:8</div>
-        </div>
-      </button>
-
-      <button class="card fast-row" type="button">
-        <div class="fast-row-top">
-          <div class="fast-duration">14h 05m</div>
-          <div class="chip chip-short">Short by 1h 55m</div>
-        </div>
-        <div class="bar is-short"><span style="width:88%"></span></div>
-        <div class="fast-row-foot">
-          <div>Tue 2 Sep · 21:40 → 11:45</div>
-          <div class="plan">16:8</div>
-        </div>
-      </button>
-
-      <button class="card fast-row" type="button">
-        <div class="fast-row-top">
-          <div class="fast-duration">18h 30m</div>
-          <div class="chip chip-met">Goal met</div>
-        </div>
-        <div class="bar"><span style="width:100%"></span></div>
-        <div class="fast-row-foot">
-          <div>Mon 1 Sep · 19:55 → 14:25</div>
-          <div class="plan">16:8</div>
-        </div>
-      </button>
+    <div class="history-list" id="history-list"></div>
+    <div class="empty-state" id="history-empty">
+      <p>No fasts yet.</p>
+      <p class="empty-hint">Start one on the Timer tab and it will show up here.</p>
     </div>
   </section>
 
@@ -230,6 +196,34 @@
 
 </div>
 
+<!-- ===================== Edit sheet ===================== -->
+<div class="sheet" id="fast-editor" role="dialog" aria-modal="true" aria-labelledby="fast-editor-title">
+  <div class="sheet-panel">
+    <div class="sheet-head">
+      <button class="sheet-action" type="button" id="fast-editor-cancel">Cancel</button>
+      <div class="sheet-title" id="fast-editor-title">Edit fast</div>
+      <button class="sheet-action is-primary" type="button" id="fast-editor-save">Save</button>
+    </div>
+
+    <label class="field">
+      <span class="field-label">Started</span>
+      <input class="field-input" type="datetime-local" id="edit-started">
+    </label>
+
+    <label class="field" id="edit-ended-field">
+      <span class="field-label">Ended</span>
+      <input class="field-input" type="datetime-local" id="edit-ended">
+    </label>
+
+    <div class="running-note" id="edit-running-note">Still running — end it from the Timer tab.</div>
+
+    <div class="edit-summary" id="edit-summary"></div>
+    <div class="edit-error" id="edit-error" role="alert"></div>
+
+    <button class="btn btn-danger" type="button" id="fast-editor-delete">Delete this fast</button>
+  </div>
+</div>
+
 <!-- ===================== Bottom navigation ===================== -->
 <nav class="tabbar" aria-label="Main">
   <button class="tab is-active" type="button" data-view="timer" aria-current="page">
@@ -262,6 +256,6 @@
   </button>
 </nav>
 
-<script src="script.js?v=0.2.0" defer></script>
+<script src="script.js?v=0.3.0" defer></script>
 </body>
 </html>

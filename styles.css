@@ -36,6 +36,11 @@
   --accent:      #FFB37A;
   --accent-dim:  #2A2A22;
 
+  /* Destructive. 5.89:1 on --surface, so it clears AA as body text rather
+     than relying on being "obviously red". */
+  --danger:      #FF6B6B;
+  --danger-line: #4A2530;
+
   /* Heatmap: one hue, verified monotonic in luminance so a darker cell
      always means a shorter fast. Level 0 is "no fast recorded" rather than a
      step on the ramp, so it is picked to read as an empty CELL against
@@ -454,4 +459,120 @@ button { font-family: inherit; cursor: pointer; }
   font-size: 14px;
   line-height: 1.4;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+
+/* ===== Empty state ===== */
+.empty-state {
+  display: none;
+  text-align: center;
+  color: var(--secondary);
+  padding: var(--sp-8) var(--sp-4);
+}
+.empty-state.is-shown { display: block; }
+.empty-state p { margin: 0 0 var(--sp-2); font-size: 16px; }
+.empty-state .empty-hint { font-size: 14px; color: var(--muted); }
+
+/* A card that is also a button: the whole Started tile is the edit affordance,
+   because fixing a forgotten start is the most-used action after the timer. */
+.card-button {
+  border: none;
+  text-align: left;
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  min-height: var(--tap);
+}
+.edit-hint { color: var(--muted); font-size: 11px; }
+
+.fast-row.is-editable:active { opacity: 0.8; }
+
+/* ===== Edit sheet ===== */
+.sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(6, 7, 18, 0.72);
+  display: none;
+  align-items: flex-end;
+}
+.sheet.is-open { display: flex; }
+.sheet-panel {
+  width: 100%;
+  background: var(--surface);
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  padding: var(--sp-5) var(--sp-6)
+           calc(var(--sp-6) + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+.sheet-title { font-size: 17px; font-weight: 500; }
+.sheet-action {
+  background: none;
+  border: none;
+  color: var(--secondary);
+  font-size: 16px;
+  padding: var(--sp-2) 0;
+  min-height: var(--tap);
+}
+.sheet-action.is-primary { color: var(--accent); font-weight: 600; }
+
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field.is-hidden { display: none; }
+.field-label { font-size: 13px; color: var(--secondary); }
+.field-input {
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-sm);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 17px;
+  padding: var(--sp-3) var(--sp-4);
+  min-height: var(--tap);
+  width: 100%;
+}
+.field-input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.running-note {
+  display: none;
+  font-size: 14px;
+  color: var(--secondary);
+  background: var(--surface-2);
+  border-radius: var(--r-sm);
+  padding: var(--sp-3) var(--sp-4);
+}
+.running-note.is-shown { display: block; }
+
+.edit-summary { font-size: 15px; color: var(--secondary); min-height: 20px; }
+.edit-error {
+  display: none;
+  font-size: 14px;
+  color: var(--danger);
+  line-height: 1.4;
+}
+.edit-error.is-shown { display: block; }
+
+.btn-danger {
+  background: transparent;
+  color: var(--danger);
+  border: 1px solid var(--danger-line);
+  min-height: 50px;
+  font-weight: 500;
+}
+
+/* Armed state for the two-step delete: filled rather than outlined, so the
+   second tap looks different from the first at a glance. */
+.btn-danger.is-armed {
+  background: var(--danger);
+  color: var(--bg);
+  border-color: var(--danger);
+  font-weight: 600;
 }
