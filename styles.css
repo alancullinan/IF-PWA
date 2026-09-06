@@ -1,0 +1,439 @@
+/*
+ * Fasting Timer — "Soft Circadian" theme.
+ *
+ * Deep indigo ground, dawn-warm accent. Design tokens live in :root and
+ * components use them. The font is self-hosted so the app renders correctly
+ * on its very first offline launch.
+ *
+ * Every url() here is RELATIVE. This app is served from a subpath
+ * (…github.io/IF-PWA/), where a leading slash would resolve above the app.
+ */
+
+/* ===== Self-hosted font (offline-first) =====
+   Outfit is a variable font: one file covers the whole 300–600 range. */
+@font-face {
+  font-family: 'Outfit';
+  src: url('fonts/outfit.woff2') format('woff2');
+  font-weight: 300 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* Surfaces */
+  --bg:        #12142A;
+  --surface:   #1A1D3C;
+  --surface-2: #1F2347;
+  --track:     #1D2043;
+  --hairline:  #2A2E58;
+
+  /* Ink — muted is the lightest tone that still clears AA at 11px on --surface */
+  --text:      #EDEBFF;
+  --secondary: #A9A6D8;
+  --muted:     #8D8AC4;
+
+  /* Accent */
+  --accent:      #FFB37A;
+  --accent-dim:  #2A2A22;
+
+  /* Heatmap: one hue, verified monotonic in luminance so a darker cell
+     always means a shorter fast. Level 0 is "no fast recorded" rather than a
+     step on the ramp, so it is picked to read as an empty CELL against
+     --surface (1.27:1) while staying clearly below level 1 (1.48:1); the
+     obvious #1D2043 managed only 1.04:1 and vanished into the card. */
+  --heat-0: #2A2E58;
+  --heat-1: #5A4551;
+  --heat-2: #8C6659;
+  --heat-3: #C08A63;
+  --heat-4: #FFB37A;
+
+  /* Spacing (4px base) */
+  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px;
+  --sp-5: 20px; --sp-6: 24px; --sp-7: 32px; --sp-8: 44px;
+
+  /* Radii */
+  --r-sm: 16px; --r-md: 20px; --r-lg: 24px; --r-pill: 999px;
+
+  --font: 'Outfit', system-ui, -apple-system, sans-serif;
+
+  /* Smallest comfortable touch target */
+  --tap: 44px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  /* Standalone iOS: keep content clear of the notch and the home indicator. */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+button { font-family: inherit; cursor: pointer; }
+
+/* ===== View switching ===== */
+#app {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.view {
+  display: none;
+  flex: 1 1 auto;
+  min-height: 0;
+  flex-direction: column;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: var(--sp-7) var(--sp-6) 0;
+}
+.view.is-active { display: flex; }
+
+.view-title {
+  font-size: 26px;
+  font-weight: 500;
+  margin: 0;
+}
+.view-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.view-head .meta { font-size: 13px; color: var(--secondary); }
+
+.section-label {
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* ===== Cards ===== */
+.card {
+  background: var(--surface);
+  border-radius: var(--r-md);
+  padding: var(--sp-5);
+}
+
+/* ===== Timer ===== */
+.timer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.timer-head .fast-name { font-size: 17px; font-weight: 500; }
+.plan-chip {
+  background: var(--surface-2);
+  border-radius: var(--r-pill);
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--secondary);
+}
+
+.ring-wrap {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--sp-7);
+}
+.ring {
+  position: relative;
+  width: 268px;
+  height: 268px;
+}
+.ring svg { display: block; }
+.ring-track    { stroke: var(--track);  }
+.ring-progress { stroke: var(--accent); transition: stroke-dasharray 400ms ease; }
+.ring-centre {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-1);
+}
+.ring-elapsed {
+  font-size: 46px;
+  font-weight: 300;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.ring-sub { font-size: 14px; color: var(--secondary); }
+
+/* Past the goal the ring stays full and the clock keeps counting. */
+.ring.is-over .ring-progress { stroke: var(--accent); }
+.ring.is-over .ring-elapsed  { color: var(--accent); }
+
+.stage-card {
+  margin-top: var(--sp-7);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+.stage-badge {
+  width: 42px;
+  height: 42px;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  color: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.stage-text { display: flex; flex-direction: column; gap: 2px; }
+.stage-name { font-size: 16px; font-weight: 500; }
+.stage-note { font-size: 13px; color: var(--secondary); }
+
+.pair {
+  display: flex;
+  gap: var(--sp-3);
+  margin-top: var(--sp-3);
+}
+.pair > .card { flex: 1 1 0; padding: var(--sp-4) 18px; }
+.pair .label { font-size: 13px; color: var(--secondary); }
+.pair .value {
+  font-size: 19px;
+  font-weight: 500;
+  margin-top: var(--sp-1);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===== Buttons ===== */
+.btn {
+  width: 100%;
+  min-height: 56px;
+  border: none;
+  border-radius: var(--r-pill);
+  font-size: 16px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 80ms ease, opacity 120ms ease;
+}
+.btn:active { transform: scale(0.985); }
+.btn-primary { background: var(--accent); color: var(--bg); }
+.btn-secondary {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--hairline);
+  font-weight: 500;
+  min-height: 50px;
+}
+.btn-row { margin-top: var(--sp-6); }
+
+/* ===== History ===== */
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  margin-top: var(--sp-5);
+}
+.fast-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  width: 100%;
+  text-align: left;
+  border: none;
+  color: inherit;
+  min-height: var(--tap);
+}
+.fast-row-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+.fast-duration { font-size: 22px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.chip {
+  border-radius: var(--r-pill);
+  padding: 5px 11px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+/* Never colour alone: each chip states its outcome in words too. */
+.chip-met   { background: var(--accent-dim); color: var(--accent); }
+.chip-short { background: var(--surface-2);  color: var(--secondary); }
+
+.bar {
+  height: 4px;
+  background: var(--track);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.bar > span { display: block; height: 100%; border-radius: 2px; background: var(--accent); }
+.bar.is-short > span { background: var(--muted); }
+
+.fast-row-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  font-size: 13px;
+  color: var(--secondary);
+}
+.fast-row-foot .plan { color: var(--muted); }
+
+/* ===== Stats ===== */
+.tile-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-3);
+  margin-top: var(--sp-5);
+}
+.tile { display: flex; flex-direction: column; gap: var(--sp-1); padding: var(--sp-4) 18px; }
+.tile .label { font-size: 13px; color: var(--secondary); }
+.tile .value {
+  font-size: 30px;
+  font-weight: 500;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.tile .value .unit { font-size: 15px; font-weight: 400; color: var(--secondary); }
+
+.chart-card { margin-top: var(--sp-5); padding: 18px; }
+.chart-title { font-size: 15px; font-weight: 500; }
+.chart-sub { font-size: 13px; color: var(--secondary); margin-top: 3px; }
+
+.heatmap {
+  display: flex;
+  gap: var(--sp-1);
+  margin-top: var(--sp-4);
+  overflow-x: auto;
+}
+.heat-week { display: flex; flex-direction: column; gap: var(--sp-1); }
+.heat-cell {
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  background: var(--heat-0);
+  flex-shrink: 0;
+}
+.heat-1 { background: var(--heat-1); }
+.heat-2 { background: var(--heat-2); }
+.heat-3 { background: var(--heat-3); }
+.heat-4 { background: var(--heat-4); }
+
+.heat-legend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: var(--sp-4);
+  font-size: 12px;
+  color: var(--secondary);
+}
+.heat-legend .swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  /* The legend swatches float on the card with no neighbours to give them an
+     edge, so the empty one needs a hairline to register as a swatch at all. */
+  box-shadow: inset 0 0 0 1px rgba(237, 235, 255, 0.10);
+}
+
+/* ===== Settings ===== */
+.preset-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: var(--sp-4);
+}
+.preset {
+  background: var(--surface);
+  border: 1px solid var(--surface);
+  border-radius: var(--r-sm);
+  padding: var(--sp-4) var(--sp-2);
+  text-align: center;
+  color: var(--text);
+  min-height: var(--tap);
+}
+.preset .ratio { font-size: 17px; font-weight: 500; }
+.preset .hours { font-size: 12px; color: var(--secondary); margin-top: 3px; }
+.preset[aria-pressed="true"] {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+}
+.preset[aria-pressed="true"] .ratio { color: var(--accent); font-weight: 600; }
+.preset[aria-pressed="true"] .hours { color: var(--accent); }
+
+.row-link {
+  background: var(--surface);
+  border: none;
+  border-radius: var(--r-sm);
+  padding: var(--sp-4) 18px;
+  margin-top: 10px;
+  width: 100%;
+  min-height: var(--tap);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--text);
+  font-size: 16px;
+}
+.row-link .value {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  color: var(--secondary);
+  font-size: 15px;
+}
+
+.backup-card { margin-top: var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-4); padding: 18px; }
+.backup-head { display: flex; align-items: flex-start; gap: var(--sp-3); }
+.backup-head svg { flex-shrink: 0; margin-top: 1px; }
+.backup-text { display: flex; flex-direction: column; gap: 3px; }
+.backup-when { font-size: 15px; }
+.backup-note { font-size: 13px; color: var(--secondary); line-height: 1.4; }
+
+.settings-group { margin-top: var(--sp-7); }
+.settings-group:first-of-type { margin-top: var(--sp-6); }
+
+/* ===== Bottom navigation ===== */
+.tabbar {
+  display: flex;
+  justify-content: space-between;
+  background: var(--surface);
+  border-radius: var(--r-lg);
+  padding: var(--sp-3) 10px;
+  margin: var(--sp-5) var(--sp-6) var(--sp-6);
+  flex: 0 0 auto;
+}
+.tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  width: 66px;
+  min-height: var(--tap);
+  justify-content: center;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+.tab.is-active { color: var(--accent); }
+
+/* Bottom padding so the last card clears the tab bar while scrolling. */
+.view > :last-child { margin-bottom: var(--sp-6); }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
