@@ -1,0 +1,92 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&family=JetBrains+Mono:wght@300;500&display=swap">
+  <style>
+    body { margin: 0; font-family: 'Archivo', system-ui, sans-serif; }
+    a { color: #8AB4F8; } a:hover { color: #A9C8FA; }
+  </style>
+</helmet>
+
+<div style="width: 390px; height: 844px; background: #0A0A0B; color: #F2F2F3; display: flex; flex-direction: column; box-sizing: border-box; padding: 28px 24px 0;">
+
+  <div style="display: flex; align-items: center; justify-content: space-between;">
+    <div style="font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: #6E6E78;">Fasting</div>
+    <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.06em; color: #8AB4F8; border: 1px solid #23262E; border-radius: 999px; padding: 6px 12px;">16:8</div>
+  </div>
+
+  <div style="display: flex; justify-content: center; margin-top: 34px;">
+    <div style="position: relative; width: 260px; height: 260px;">
+      <svg width="260" height="260" viewBox="0 0 240 240">
+        <circle cx="120" cy="120" r="104" fill="none" stroke="#17181D" stroke-width="10"/>
+        <g transform="rotate(-90 120 120)">
+          <circle cx="120" cy="120" r="104" fill="none" stroke="#8AB4F8" stroke-width="10"
+                  stroke-linecap="round" stroke-dasharray="549 654"/>
+        </g>
+        <g stroke="#3A3D46" stroke-width="2">
+          <line x1="120" y1="6" x2="120" y2="14" transform="rotate(90 120 120)"/>
+          <line x1="120" y1="6" x2="120" y2="14" transform="rotate(180 120 120)"/>
+          <line x1="120" y1="6" x2="120" y2="14" transform="rotate(270 120 120)"/>
+        </g>
+      </svg>
+      <div style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;">
+        <div style="font-family: 'JetBrains Mono', monospace; font-weight: 300; font-size: 42px; letter-spacing: -0.01em; font-variant-numeric: tabular-nums;">13:24</div>
+        <div style="font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: #6E6E78;">of 16h</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: flex; gap: 6px; margin-top: 30px;">
+    <div style="flex-grow: 1; height: 3px; background: #8AB4F8; border-radius: 2px;"></div>
+    <div style="flex-grow: 1; height: 3px; background: #8AB4F8; border-radius: 2px;"></div>
+    <div style="flex-grow: 1; height: 3px; background: #8AB4F8; border-radius: 2px;"></div>
+    <div style="flex-grow: 1; height: 3px; background: #1D1F26; border-radius: 2px;"></div>
+  </div>
+  <div style="display: flex; justify-content: space-between; margin-top: 10px; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: #55555F;">
+    <div>Fed</div><div>Glycogen</div><div style="color: #8AB4F8;">Lipolysis</div><div>Ketosis</div>
+  </div>
+
+  <div style="display: flex; gap: 12px; margin-top: 32px;">
+    <div style="flex-grow: 1; border: 1px solid #1D1F26; border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 5px;">
+      <div style="font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #55555F;">Started</div>
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 16px;">20:12</div>
+    </div>
+    <div style="flex-grow: 1; border: 1px solid #1D1F26; border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 5px;">
+      <div style="font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #55555F;">Ends</div>
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 16px;">12:12</div>
+    </div>
+  </div>
+
+  <button style="margin-top: 26px; height: 56px; width: 100%; background: #8AB4F8; color: #0A0A0B; border: none; border-radius: 12px; font-family: 'Archivo', sans-serif; font-size: 15px; font-weight: 600; letter-spacing: 0.04em; cursor: pointer;">End fast</button>
+
+  <div style="flex-grow: 1;"></div>
+
+  <div style="display: flex; justify-content: space-between; border-top: 1px solid #16171C; padding: 16px 8px 22px;">
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; width: 60px; color: #8AB4F8;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l2.5 2"/></svg>
+      <div style="font-size: 10px;">Timer</div>
+    </div>
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; width: 60px; color: #55555F;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 7h16M4 12h16M4 17h10"/></svg>
+      <div style="font-size: 10px;">History</div>
+    </div>
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; width: 60px; color: #55555F;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 19V11M12 19V5M19 19v-6"/></svg>
+      <div style="font-size: 10px;">Stats</div>
+    </div>
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; width: 60px; color: #55555F;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg>
+      <div style="font-size: 10px;">Settings</div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

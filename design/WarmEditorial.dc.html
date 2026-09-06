@@ -1,0 +1,75 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Newsreader:wght@300;400;500&display=swap">
+  <style>
+    body { margin: 0; font-family: 'Newsreader', Georgia, serif; }
+    a { color: #C97B3F; } a:hover { color: #DE9761; }
+  </style>
+</helmet>
+
+<div style="width: 390px; height: 844px; background: #14100C; color: #F5EDE0; display: flex; flex-direction: column; box-sizing: border-box; padding: 30px 26px 0;">
+
+  <div style="display: flex; align-items: baseline; justify-content: space-between;">
+    <div style="font-family: 'Instrument Serif', serif; font-size: 26px;">Fast</div>
+    <div style="font-size: 14px; color: #A89880; font-style: italic;">sixteen &middot; eight</div>
+  </div>
+
+  <div style="display: flex; justify-content: center; margin-top: 30px;">
+    <div style="position: relative; width: 262px; height: 262px;">
+      <svg width="262" height="262" viewBox="0 0 240 240">
+        <circle cx="120" cy="120" r="106" fill="none" stroke="#231B14" stroke-width="1.5"/>
+        <circle cx="120" cy="120" r="96" fill="none" stroke="#231B14" stroke-width="6"/>
+        <g transform="rotate(-90 120 120)">
+          <circle cx="120" cy="120" r="96" fill="none" stroke="#C97B3F" stroke-width="6"
+                  stroke-linecap="butt" stroke-dasharray="507 603"/>
+        </g>
+      </svg>
+      <div style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+        <div style="font-family: 'Instrument Serif', serif; font-size: 62px; line-height: 1;">13:24</div>
+        <div style="font-size: 15px; color: #A89880; font-style: italic; margin-top: 8px;">thirteen hours in</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top: 30px; border-top: 1px solid #2A2119; border-bottom: 1px solid #2A2119; padding: 18px 0; display: flex; flex-direction: column; gap: 12px;">
+    <div style="display: flex; justify-content: space-between; align-items: baseline;">
+      <div style="font-size: 16px; color: #A89880;">Lipolysis</div>
+      <div style="font-family: 'Instrument Serif', serif; font-size: 18px;">since 12h</div>
+    </div>
+    <div style="display: flex; justify-content: space-between; align-items: baseline;">
+      <div style="font-size: 16px; color: #A89880;">Ketosis</div>
+      <div style="font-size: 16px; color: #6B5B47; font-style: italic;">in 2h 36m</div>
+    </div>
+  </div>
+
+  <div style="display: flex; justify-content: space-between; margin-top: 22px; align-items: baseline;">
+    <div style="font-size: 16px; color: #A89880;">Began</div>
+    <div style="font-family: 'Instrument Serif', serif; font-size: 20px;">8.12 pm</div>
+  </div>
+  <div style="display: flex; justify-content: space-between; margin-top: 10px; align-items: baseline;">
+    <div style="font-size: 16px; color: #A89880;">Breaks</div>
+    <div style="font-family: 'Instrument Serif', serif; font-size: 20px;">12.12 pm</div>
+  </div>
+
+  <button style="margin-top: 30px; height: 56px; width: 100%; background: transparent; color: #F5EDE0; border: 1px solid #C97B3F; border-radius: 0; font-family: 'Instrument Serif', serif; font-size: 20px; cursor: pointer;">End this fast</button>
+
+  <div style="flex-grow: 1;"></div>
+
+  <div style="display: flex; justify-content: space-between; padding: 18px 4px 24px; font-size: 15px;">
+    <div style="color: #F5EDE0; border-bottom: 1px solid #C97B3F; padding-bottom: 3px;">Timer</div>
+    <div style="color: #6B5B47;">History</div>
+    <div style="color: #6B5B47;">Stats</div>
+    <div style="color: #6B5B47;">Settings</div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>
