@@ -8,7 +8,7 @@
 (function () {
   'use strict';
 
-  const APP_VERSION = '0.4.0';
+  const APP_VERSION = '0.5.0';
 
   // ---------------------------------------------------------------- storage
 
@@ -307,6 +307,7 @@
     startTicking();
     renderTimer();
     renderHistory();
+    renderStats();
     return fast;
   }
 
@@ -318,6 +319,7 @@
     stopTicking();
     renderTimer();
     renderHistory();
+    renderStats();
     return fast;
   }
 
@@ -625,6 +627,7 @@
     closeFastEditor();
     renderTimer();
     renderHistory();
+    renderStats();
     return true;
   }
 
@@ -637,6 +640,7 @@
     if (activeFast()) startTicking();
     renderTimer();
     renderHistory();
+    renderStats();
     return saved;
   }
 
@@ -970,6 +974,7 @@
       renderPresets();
       renderTimer();
       renderHistory();
+      renderStats();
       renderBackupStatus();
       if (activeFast()) startTicking();
       return true;
@@ -1140,23 +1145,175 @@
     }
   }
 
+  // ---------------------------------------------------------------- stats
+
+  const DAY_MS = 86400000;
+
   /**
-   * Deterministic stand-in so the shell renders something. Replaced in phase 5.
+   * Midnight local, as a timestamp.
    *
-   * Uses a small LCG rather than a repeating literal: any fixed-length cycle
-   * lands on the same weekday every week and paints diagonal stripes across a
-   * 7-row grid, which reads as a rendering fault rather than as data.
+   * Built from local date components rather than by slicing an ISO string:
+   * toISOString() is UTC, and an Irish fast started at 23:30 in summer would be
+   * filed under the following day. A 16:8 fast normally crosses midnight, so
+   * this is the common case here, not an edge case.
    */
-  function placeholderHeatLevels() {
+  function startOfLocalDay(timestamp) {
+    const d = new Date(timestamp);
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  }
+
+  /** Whole local days between two instants, DST changes included. */
+  function daysBetween(fromTs, toTs) {
+    return Math.round((startOfLocalDay(toTs) - startOfLocalDay(fromTs)) / DAY_MS);
+  }
+
+  const completedFasts = () => appState.fasts.filter((f) => f.endedAt !== null);
+  const metGoal = (f) => elapsedMs(f) >= f.goalHours * HOUR_MS;
+
+  /**
+   * A fast belongs to the local day it STARTED on.
+   *
+   * Attributing by the end would move most 16:8 fasts to the following day and
+   * make an evening start look like it never happened.
+   */
+  function fastsByDay(fasts) {
+    const byDay = new Map();
+    for (const f of fasts) {
+      const key = startOfLocalDay(f.startedAt);
+      const entry = byDay.get(key) || { totalMs: 0, met: false, count: 0 };
+      entry.totalMs += elapsedMs(f);
+      entry.met = entry.met || metGoal(f);
+      entry.count += 1;
+      byDay.set(key, entry);
+    }
+    return byDay;
+  }
+
+  /**
+   * Consecutive days, counting back, on which a fast met its goal.
+   *
+   * Counting starts at yesterday when today has nothing recorded yet, so the
+   * streak does not appear to break every morning before you have finished
+   * that day's fast.
+   */
+  function currentStreak(fasts, now) {
+    const today = startOfLocalDay(now || Date.now());
+    const metByDay = fastsByDay(fasts.filter(metGoal));
+    const anyByDay = fastsByDay(fasts);
+
+    let cursor;
+    if (metByDay.has(today)) {
+      cursor = today;
+    } else if (anyByDay.has(today)) {
+      // Today was fasted and fell short. That breaks the streak - treating it
+      // the same as "nothing recorded yet" would report a streak that the day
+      // just ended, which is the one thing a streak must never do.
+      return 0;
+    } else {
+      cursor = today - DAY_MS;
+    }
+
+    let streak = 0;
+    while (metByDay.has(cursor)) {
+      streak += 1;
+      cursor -= DAY_MS;
+    }
+    return streak;
+  }
+
+  function averageMs(fasts) {
+    if (fasts.length === 0) return null;
+    return fasts.reduce((sum, f) => sum + elapsedMs(f), 0) / fasts.length;
+  }
+
+  /** Everything the Stats screen shows, from the fasts alone. */
+  function computeStats(now) {
+    const when = now || Date.now();
+    const done = completedFasts();
+    const within = (days) => done.filter((f) => daysBetween(f.startedAt, when) < days);
+
+    const last30 = within(30);
+    const longest = done.reduce((max, f) => Math.max(max, elapsedMs(f)), 0);
+    const met = done.filter(metGoal).length;
+
+    return {
+      total: done.length,
+      streak: currentStreak(done, when),
+      goalRate: done.length ? Math.round((met / done.length) * 100) : null,
+      average30: averageMs(last30),
+      longest: done.length ? longest : null,
+    };
+  }
+
+  // ---------------------------------------------------------------- heatmap
+
+  /**
+   * Hours fasted in a day, as a ramp step.
+   *
+   * Level 0 is "nothing recorded" rather than the bottom of the scale, so an
+   * empty day reads as absent rather than as a very short fast.
+   */
+  function heatLevel(totalMs) {
+    const hours = totalMs / HOUR_MS;
+    if (hours <= 0) return 0;
+    if (hours < 12) return 1;
+    if (hours < 16) return 2;
+    if (hours < 20) return 3;
+    return 4;
+  }
+
+  /**
+   * 13 weeks of levels, ordered as the grid renders them: column by column,
+   * each column a week running Monday to Sunday, oldest week first.
+   */
+  function heatLevels(fasts, now) {
+    const byDay = fastsByDay(fasts);
+    const today = startOfLocalDay(now || Date.now());
+    // Monday of the current week. getDay() is 0 for Sunday, so shift it.
+    const weekday = (new Date(today).getDay() + 6) % 7;
+    const thisMonday = today - weekday * DAY_MS;
+    const firstMonday = thisMonday - (HEAT_WEEKS - 1) * DAY_MS * 7;
+
     const levels = [];
-    let seed = 20260906;
-    for (let i = 0; i < HEAT_WEEKS * DAYS_PER_WEEK; i++) {
-      seed = (seed * 1103515245 + 12345) % 2147483648;
-      const r = seed / 2147483648;
-      // Weighted towards completed fasts, with the occasional missed day.
-      levels.push(r < 0.12 ? 0 : r < 0.3 ? 2 : r < 0.55 ? 3 : 4);
+    for (let w = 0; w < HEAT_WEEKS; w++) {
+      for (let d = 0; d < DAYS_PER_WEEK; d++) {
+        // Rebuild each date through the Date constructor so a DST change does
+        // not drift the grid by an hour and land on the wrong day.
+        const base = new Date(firstMonday);
+        const day = new Date(base.getFullYear(), base.getMonth(),
+          base.getDate() + w * DAYS_PER_WEEK + d).getTime();
+        if (day > today) { levels.push(0); continue; }
+        const entry = byDay.get(day);
+        levels.push(entry ? heatLevel(entry.totalMs) : 0);
+      }
     }
     return levels;
+  }
+
+  function renderStats() {
+    const stats = computeStats();
+    const dash = '\u2013';
+
+    const set = (id, value) => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = value;
+    };
+    const unit = (text) => '<span class="unit">' + text + '</span>';
+
+    set('stat-streak', stats.streak + unit(stats.streak === 1 ? ' day' : ' days'));
+    set('stat-rate', stats.goalRate === null ? dash : stats.goalRate + unit('%'));
+    set('stat-avg', stats.average30 === null ? dash : splitDuration(stats.average30, unit));
+    set('stat-longest', stats.longest === null ? dash : splitDuration(stats.longest, unit));
+
+    renderHeatmap(heatLevels(appState.fasts));
+  }
+
+  /** "15h 48m" with the h and m in the quieter unit style. */
+  function splitDuration(ms, unit) {
+    const total = Math.max(0, Math.floor(ms / 60000));
+    const h = Math.floor(total / 60);
+    const m = total % 60;
+    return h + unit('h ') + String(m).padStart(2, '0') + unit('m');
   }
 
   // ---------------------------------------------------------------- ring
@@ -1249,8 +1406,6 @@
     wireHistory();
     wireBackup();
     showView('timer');
-    renderHeatmap(placeholderHeatLevels());
-
     StorageManager.requestPersistence();
     await loadAppState();
 
@@ -1259,6 +1414,7 @@
     renderPresets();
     renderTimer();
     renderHistory();
+    renderStats();
     renderBackupStatus();
     renderAbout();
     if (activeFast()) startTicking();
@@ -1305,6 +1461,13 @@
     toLocalInputValue,
     fromLocalInputValue,
     fastsNewestFirst,
+    computeStats,
+    currentStreak,
+    heatLevels,
+    heatLevel,
+    startOfLocalDay,
+    fastsByDay,
+    renderStats,
     DataManager,
     formatBackupAge,
     renderBackupStatus,
