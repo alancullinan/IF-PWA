@@ -8,7 +8,7 @@
 (function () {
   'use strict';
 
-  const APP_VERSION = '0.6.3';
+  const APP_VERSION = '0.6.4';
 
   // ---------------------------------------------------------------- storage
 
@@ -181,6 +181,11 @@
     const active = document.getElementById(name + '-view');
     if (active) active.scrollTop = 0;
 
+    // Recompute on entry. History and Stats are both derived from the fasts,
+    // and a running fast keeps changing while neither was being re-rendered -
+    // so a running row showed whatever it read when the app was last launched.
+    if (name === 'history') renderHistory();
+    if (name === 'stats') renderStats();
   }
 
   function wireNav() {
@@ -578,6 +583,22 @@
     }
   }
 
+  /**
+   * Refresh just the running fast's row, once a second, while History is open.
+   *
+   * The whole list is deliberately NOT rebuilt on the tick: it would discard
+   * and recreate every row a second at a time for one changing number. The row
+   * is rebuilt through buildFastRow() so its duration, bar and chip stay
+   * consistent with every other row rather than being formatted twice.
+   */
+  function refreshRunningRow() {
+    const fast = activeFast();
+    if (!fast) return;
+    if (!document.querySelector('#history-view.is-active')) return;
+    const existing = document.querySelector('.fast-row[data-fast-id="' + fast.id + '"]');
+    if (existing) existing.replaceWith(buildFastRow(fast));
+  }
+
   function renderPresets() {
     const active = appState.settings.activePlanId;
     document.querySelectorAll('.preset').forEach((el) => {
@@ -731,10 +752,11 @@
     if (!list) return;
 
     const fasts = fastsNewestFirst();
-    const finished = fasts.filter((f) => f.endedAt !== null);
 
+    // Counts what the list shows, including a fast still running. Counting only
+    // finished ones read "0 fasts" directly above a visible row.
     if (count) {
-      count.textContent = finished.length === 1 ? '1 fast' : finished.length + ' fasts';
+      count.textContent = fasts.length === 1 ? '1 fast' : fasts.length + ' fasts';
     }
     if (empty) empty.classList.toggle('is-shown', fasts.length === 0);
 
@@ -1304,7 +1326,10 @@
    */
   function startTicking() {
     stopTicking();
-    tickHandle = setInterval(renderTimer, 1000);
+    tickHandle = setInterval(() => {
+      renderTimer();
+      refreshRunningRow();
+    }, 1000);
   }
 
   function stopTicking() {
@@ -1718,6 +1743,7 @@
     closeStageSheet,
     describeStageTime,
     renderHistory,
+    refreshRunningRow,
     openFastEditor,
     closeFastEditor,
     saveFastEdit,

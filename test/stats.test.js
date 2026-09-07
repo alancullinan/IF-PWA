@@ -246,18 +246,33 @@ async function main() {
     check('while the UTC route would have said the 28th', dst.utcWouldSay, '28');
 
     console.log('\n  The screen shows it');
-    await page.evaluate(async (f) => {
-      await window.__ifTest.StorageManager.saveData('fasts', f);
-    }, fasts);
+    /*
+     * Seeded RELATIVE to now. The fixtures above use fixed June 2026 dates,
+     * which is fine for the pure functions but not for the rendered heatmap:
+     * its window is the last 13 weeks from today, so absolute dates silently
+     * drift out of it as real time passes and the grid comes back empty.
+     */
+    await page.evaluate(async () => {
+      const H = 3600000, D = 86400000, now = Date.now();
+      await window.__ifTest.StorageManager.saveData('fasts', [
+        { id: 'r1', startedAt: now - 3 * D, endedAt: now - 3 * D + 24 * H,
+          goalHours: 16, planId: 'custom', editedAt: null },
+        { id: 'r2', startedAt: now - 1 * D, endedAt: now - 1 * D + 16 * H,
+          goalHours: 16, planId: '16-8', editedAt: null },
+      ]);
+    });
     await page.goto(ctx.base, { waitUntil: 'networkidle2' });
     await page.evaluate(() => window.__ifTest.showView('stats'));
     check('the heatmap is drawn', await page.evaluate(
       () => document.querySelectorAll('#heatmap .heat-cell').length), 91);
-    check('some cells are filled', await page.evaluate(
+    check('recent fasts fill cells', await page.evaluate(
       () => [...document.querySelectorAll('#heatmap .heat-cell')]
-        .some((c) => c.className !== 'heat-cell')), true);
+        .filter((c) => c.className !== 'heat-cell').length >= 2), true);
     check('the longest tile is populated', await page.evaluate(
       () => document.getElementById('stat-longest').textContent.includes('24')), true);
+    check('the rate tile is populated', await page.evaluate(
+      () => document.getElementById('stat-rate').textContent.includes('100')), true);
+
   } finally {
     await ctx.close();
   }

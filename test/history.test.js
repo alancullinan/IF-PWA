@@ -13,7 +13,7 @@
  * Run with:  npm test
  */
 
-const { boot, makeChecker } = require('./harness');
+const { boot, makeChecker, sleep } = require('./harness');
 
 const PORT = 8235;
 const HOUR = 3600000;
@@ -149,6 +149,46 @@ async function main() {
     check('still flagged as edited', await page.evaluate(
       () => document.querySelector('#history-list .plan').textContent.includes('edited')), true);
 
+    console.log('\n  A running fast does not go stale in the list');
+    /*
+     * Reported from the app: a fast started at 18:24 read "15h 47m" at 12:12
+     * the next day, which is two hours behind. renderHistory() ran on init and
+     * on changes, the per-second tick only repainted the timer, and showView()
+     * refreshed nothing - so a running row showed whatever it read when the app
+     * was last launched.
+     */
+    await seed(page, ctx.base, [fast({ id: 'live', startedAt: now - 5 * HOUR, endedAt: null })]);
+    await page.evaluate(() => window.__ifTest.showView('history'));
+    const rowDuration = () => text(page, '.fast-row[data-fast-id="live"] .fast-duration');
+    check('the row opens with the current elapsed time', await page.evaluate(() => {
+      const f = window.__ifTest.activeFast();
+      const expected = window.__ifTest.formatDuration(
+        window.__ifTest.floorToMinute(Date.now() - f.startedAt));
+      return document.querySelector('.fast-row[data-fast-id="live"] .fast-duration')
+        .textContent === expected;
+    }), true);
+
+    // Move the start back and wait for the timer's own tick - calling the
+    // refresh directly would pass even with it unwired from the interval,
+    // which is exactly how the bug shipped.
+    await page.evaluate(() => {
+      window.__ifTest.activeFast().startedAt = Date.now() - 9 * 3600000;
+    });
+    await sleep(1400);
+    check('and the running tick keeps it current',
+      (await rowDuration()).startsWith('9h'), true);
+
+    check('the count includes the running fast', await text(page, '#history-count'), '1 fast');
+
+    // Re-entering the view recomputes rather than trusting the last render.
+    await page.evaluate(() => {
+      window.__ifTest.activeFast().startedAt = Date.now() - 12 * 3600000;
+      window.__ifTest.showView('timer');
+      window.__ifTest.showView('history');
+    });
+    check('re-opening History recomputes it',
+      (await rowDuration()).startsWith('12h'), true);
+
     console.log('\n  Rules that keep an edit from corrupting history');
     const rule = (id, start, end) => page.evaluate(
       (a) => window.__ifTest.validateFastTimes(a.id, a.start, a.end), { id, start, end });
@@ -160,7 +200,10 @@ async function main() {
       'The end has to come after the start.');
     check('a zero-length fast is refused', await rule('x', now - HOUR, now - HOUR),
       'The end has to come after the start.');
-    check('a sensible edit is allowed', await rule('run', now - 6 * HOUR, null), null);
+    // Against the running fast itself: a fast never overlaps its own record,
+    // so pulling its start back is allowed. Named explicitly because the block
+    // above leaves that fast in place.
+    check('a sensible edit is allowed', await rule('live', now - 6 * HOUR, null), null);
 
     console.log('\n  Overlaps are refused, because they would double-count');
     await seed(page, ctx.base, [
