@@ -227,7 +227,11 @@ moves: muted text clears AA at 11px on the card surface, and the heatmap ramp
 is monotonic in luminance so a darker cell always means a shorter fast.
 
 Outcomes are never colour alone — a missed goal says "Short by 2h 00m" rather
-than turning red. Stage timings are stated as approximations in the UI itself,
+than turning red. That is also why a history row carries no progress bar: the
+bar was full for every fast that met its goal and the chip already gives the
+shortfall to the minute, so it cost a third line on every row and said nothing.
+The list is for scanning; `test/layout.test.js` pins the row's pitch and how
+many fit, on every phone size. Stage timings are stated as approximations in the UI itself,
 because the hour boundaries are typical rather than measured and the app should
 not imply otherwise. Icons are inline SVG, never emoji. `tools/make-icons.py`
 generates the app icons with no image library.

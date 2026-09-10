@@ -8,7 +8,7 @@
 (function () {
   'use strict';
 
-  const APP_VERSION = '0.6.5';
+  const APP_VERSION = '0.6.6';
 
   // ---------------------------------------------------------------- storage
 
@@ -588,7 +588,7 @@
    *
    * The whole list is deliberately NOT rebuilt on the tick: it would discard
    * and recreate every row a second at a time for one changing number. The row
-   * is rebuilt through buildFastRow() so its duration, bar and chip stay
+   * is rebuilt through buildFastRow() so its duration and chip stay
    * consistent with every other row rather than being formatted twice.
    */
   function refreshRunningRow() {
@@ -806,12 +806,6 @@
     }
     top.append(duration, chip);
 
-    const bar = document.createElement('div');
-    bar.className = 'bar' + (met ? '' : ' is-short');
-    const fill = document.createElement('span');
-    fill.style.width = Math.min(100, (ms / goalMs) * 100) + '%';
-    bar.appendChild(fill);
-
     const foot = document.createElement('div');
     foot.className = 'fast-row-foot';
     const when = document.createElement('div');
@@ -822,7 +816,13 @@
     plan.textContent = planLabelFor(fast) + (fast.editedAt ? ' · edited' : '');
     foot.append(when, plan);
 
-    row.append(top, bar, foot);
+    /*
+     * Two lines, no progress bar. The bar said nothing the chip did not: it
+     * was full for every fast that met its goal - the common case - and where
+     * it was short the chip already gives the shortfall to the minute. It cost
+     * a third line on every row, and the list is for scanning many rows.
+     */
+    row.append(top, foot);
     return row;
   }
 

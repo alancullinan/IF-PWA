@@ -152,6 +152,44 @@ async function main() {
       check('nav sits on the safe-area edge, not above it',
         m.navGap <= 35, true);
       check('the button keeps a full touch target', m.buttonHeight >= 44, true);
+
+      /*
+       * History density. The list is for scanning, and the original
+       * three-line card fitted five entries on a 6.1" phone - so how many fit
+       * is the property worth pinning, not just that a row renders. The touch
+       * target is checked alongside it, because the obvious way to fit more
+       * rows is to shrink them below what a thumb can hit.
+       */
+      const rows = await page.evaluate(() => {
+        const H = 3600000, D = 86400000, now = Date.now();
+        const fasts = [];
+        for (let i = 1; i <= 14; i++) {
+          const s = now - i * D;
+          fasts.push({ id: 'f' + i, startedAt: s, endedAt: s + 18 * H,
+            goalHours: 18, planId: '18-6', editedAt: null });
+        }
+        window.__ifTest.appState.fasts = fasts;
+        window.__ifTest.showView('history');
+        window.__ifTest.renderHistory();
+        const view = document.getElementById('history-view');
+        const els = Array.from(document.querySelectorAll('.fast-row'));
+        const first = els[0].getBoundingClientRect();
+        const second = els[1].getBoundingClientRect();
+        const vr = view.getBoundingClientRect();
+        const nav = document.querySelector('.tabbar').getBoundingClientRect();
+        const floor = Math.min(vr.bottom, nav.top);
+        return {
+          height: Math.round(first.height),
+          pitch: Math.round(second.top - first.top),
+          visible: els.filter((el) => {
+            const r = el.getBoundingClientRect();
+            return r.top >= vr.top && r.bottom <= floor;
+          }).length,
+        };
+      });
+      check('a history row is still a full touch target', rows.height >= 44, true);
+      check('and compact enough to scan', rows.pitch <= 84, true);
+      check('so at least six entries fit on screen', rows.visible >= 6, true);
     }
   } finally {
     await ctx.close();

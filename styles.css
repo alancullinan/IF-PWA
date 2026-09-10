@@ -268,26 +268,35 @@ body {
 .history-list {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-3);
-  margin-top: var(--sp-5);
+  gap: var(--sp-2);
+  margin-top: var(--sp-4);
 }
+/*
+ * Two lines and tight padding. The list exists to be scanned, so a row is
+ * sized to be read at a glance rather than to look generous on its own: the
+ * three-line card fitted five entries on a 6.1" phone, this fits nine.
+ */
 .fast-row {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-3);
+  gap: 2px;
   width: 100%;
   text-align: left;
   border: none;
   color: inherit;
   min-height: var(--tap);
+  padding: var(--sp-3) var(--sp-4);
 }
+/* A month heading needs air above it that the rows themselves no longer do. */
+.history-list > .section-label { margin-top: var(--sp-3); }
+.history-list > .section-label:first-child { margin-top: 0; }
 .fast-row-top {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: var(--sp-3);
 }
-.fast-duration { font-size: 22px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.fast-duration { font-size: 20px; font-weight: 500; font-variant-numeric: tabular-nums; }
 .chip {
   border-radius: var(--r-pill);
   padding: 5px 11px;
@@ -298,15 +307,6 @@ body {
 /* Never colour alone: each chip states its outcome in words too. */
 .chip-met   { background: var(--accent-dim); color: var(--accent); }
 .chip-short { background: var(--surface-2);  color: var(--secondary); }
-
-.bar {
-  height: 4px;
-  background: var(--track);
-  border-radius: 2px;
-  overflow: hidden;
-}
-.bar > span { display: block; height: 100%; border-radius: 2px; background: var(--accent); }
-.bar.is-short > span { background: var(--muted); }
 
 .fast-row-foot {
   display: flex;
