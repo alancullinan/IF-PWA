@@ -123,6 +123,86 @@ async function main() {
     }, { now });
     check('a fast still running today keeps yesterday\'s streak', running, 1);
 
+    console.log('\n  A running fast holds the streak all the way round the clock');
+    /*
+     * The bug this pins. Past midnight, "yesterday" is the day the currently
+     * running fast STARTED, and that day holds no COMPLETED fast. Counting only
+     * completed fasts stopped the walk-back on step one, so an evening-start
+     * 18:6 read 0 from midnight until the fast was broken - most of the waking
+     * day - and came right only after eating. Six points around one day,
+     * because the two the old rule got right are the two you would check.
+     */
+    const cycle = await page.evaluate(() => {
+      const at = (d, h, min) => new Date(2026, 5, d, h, min || 0).getTime();
+      // A daily 18:6: start 20:00, break 14:00. Three finished days behind.
+      const ran = (d) => ({ id: 'h' + d, startedAt: at(d, 20), endedAt: at(d + 1, 14),
+        goalHours: 18, planId: '18-6', editedAt: null });
+      const live = (d) => ({ id: 'l' + d, startedAt: at(d, 20), endedAt: null,
+        goalHours: 18, planId: '18-6', editedAt: null });
+      const history = [8, 9, 10].map(ran);
+      const streak = (fasts, now) => {
+        window.__ifTest.appState.fasts = fasts;
+        return window.__ifTest.computeStats(now).streak;
+      };
+      const under = history.concat([live(11)]);
+      return {
+        evening: streak(under, at(11, 22)),
+        pastMidnight: streak(under, at(12, 2)),
+        morning: streak(under, at(12, 10)),
+        goalPassed: streak(under, at(12, 15)),
+        justBroken: streak(history.concat([ran(11)]), at(12, 14, 30)),
+        nextEvening: streak(history.concat([ran(11), live(12)]), at(12, 21)),
+      };
+    });
+    check('22:00, the fast just begun', cycle.evening, 3);
+    check('02:00, the same fast still running', cycle.pastMidnight, 3);
+    check('10:00, still hours short of the goal', cycle.morning, 3);
+    check('15:00, past the goal and still running', cycle.goalPassed, 4);
+    check('14:30, broken right on the goal', cycle.justBroken, 4);
+    check('20:00, and the next one under way', cycle.nextEvening, 4);
+
+    // Stepping over a pending day must not step over a real miss: the day is
+    // only unfinished while the fast is still running.
+    check('a fast broken short still ends the run', await page.evaluate(() => {
+      const at = (d, h) => new Date(2026, 5, d, h).getTime();
+      const before = [9, 10].map((d) => ({ id: 'h' + d, startedAt: at(d, 20),
+        endedAt: at(d + 1, 14), goalHours: 18, planId: '18-6', editedAt: null }));
+      window.__ifTest.appState.fasts = before.concat([{ id: 's',
+        startedAt: at(11, 20), endedAt: at(12, 6), goalHours: 18,
+        planId: '18-6', editedAt: null }]);
+      return window.__ifTest.computeStats(at(12, 10)).streak;
+    }), 0);
+
+    console.log('\n  The walk back survives a clock change');
+    /*
+     * 25 October 2026 is twenty-five hours long in Ireland and 29 March is
+     * twenty-three. Stepping back a fixed 24h from a local midnight lands at
+     * 23:00 or 01:00 on the day before, and every lookup keyed on a local
+     * midnight then misses - the streak would end at each clock change.
+     */
+    const clocks = await page.evaluate(() => {
+      const prev = window.__ifTest.previousLocalDay;
+      const mid = (m, d) => new Date(2026, m - 1, d).getTime();
+      const span = (m, d) => (mid(m, d) - prev(mid(m, d))) / 3600000;
+      const landsOn = (m, d) => new Date(prev(mid(m, d))).getDate();
+      return { octHours: span(10, 26), octDay: landsOn(10, 26),
+               marHours: span(3, 30), marDay: landsOn(3, 30) };
+    });
+    check('the day the clocks go back is 25 hours', clocks.octHours, 25);
+    check('and the step still lands on its midnight', clocks.octDay, 25);
+    check('the day they go forward is 23 hours', clocks.marHours, 23);
+    check('and the step still lands on its midnight', clocks.marDay, 29);
+
+    fasts = await build(
+      [{ y: 2026, m: 10, d: 23, h: 20, hours: 17 },
+       { y: 2026, m: 10, d: 24, h: 20, hours: 17 },
+       { y: 2026, m: 10, d: 25, h: 20, hours: 17 },
+       { y: 2026, m: 10, d: 26, h: 20, hours: 17 }],
+      { y: 2026, m: 10, d: 27, h: 9 });
+    now = await page.evaluate(() => window.__now);
+    check('so a streak counts straight through it',
+      (await withFasts(page, fasts, { now, expr: 'stats' })).streak, 4);
+
     console.log('\n  Rate, average and longest');
     fasts = await build(
       [{ y: 2026, m: 6, d: 10, h: 20, hours: 18 },

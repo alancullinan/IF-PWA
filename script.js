@@ -8,7 +8,7 @@
 (function () {
   'use strict';
 
-  const APP_VERSION = '0.6.4';
+  const APP_VERSION = '0.6.5';
 
   // ---------------------------------------------------------------- storage
 
@@ -1405,6 +1405,19 @@
     return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
   }
 
+  /**
+   * The local midnight one day earlier.
+   *
+   * Built through the Date constructor rather than subtracting 24h: a local day
+   * is 23 or 25 hours long across a clock change, so fixed arithmetic lands at
+   * 23:00 the day before and every lookup keyed on a local midnight misses.
+   * Ireland changes clocks in late March and late October.
+   */
+  function previousLocalDay(dayStart) {
+    const d = new Date(dayStart);
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1).getTime();
+  }
+
   /** Whole local days between two instants, DST changes included. */
   function daysBetween(fromTs, toTs) {
     return Math.round((startOfLocalDay(toTs) - startOfLocalDay(fromTs)) / DAY_MS);
@@ -1419,13 +1432,21 @@
    * Attributing by the end would move most 16:8 fasts to the following day and
    * make an evening start look like it never happened.
    */
-  function fastsByDay(fasts) {
+  function fastsByDay(fasts, now) {
+    const when = now || Date.now();
     const byDay = new Map();
     for (const f of fasts) {
       const key = startOfLocalDay(f.startedAt);
-      const entry = byDay.get(key) || { totalMs: 0, met: false, count: 0 };
-      entry.totalMs += elapsedMs(f);
-      entry.met = entry.met || metGoal(f);
+      const entry = byDay.get(key)
+        || { totalMs: 0, met: false, pending: false, count: 0 };
+      const elapsed = elapsedMs(f, when);
+      const reached = elapsed >= f.goalHours * HOUR_MS;
+      entry.totalMs += elapsed;
+      // A running fast counts as met the moment it passes its goal, rather
+      // than waiting to be stopped.
+      entry.met = entry.met || reached;
+      // Still running and not there yet: the day is unfinished, not failed.
+      entry.pending = entry.pending || (f.endedAt === null && !reached);
       entry.count += 1;
       byDay.set(key, entry);
     }
@@ -1435,31 +1456,42 @@
   /**
    * Consecutive days, counting back, on which a fast met its goal.
    *
-   * Counting starts at yesterday when today has nothing recorded yet, so the
-   * streak does not appear to break every morning before you have finished
-   * that day's fast.
+   * Three states per day, not two, and the third is what this got wrong. A day
+   * whose fast is STILL RUNNING is pending: it has not met its goal and it has
+   * not failed either. Stopping there read 0 for anyone whose fast crosses
+   * midnight - with an evening-start 18:6 that is every day from midnight until
+   * the fast is broken, so the streak was wrong for most of the waking day and
+   * only became right after eating.
+   *
+   * Today is also allowed to be unfinished: nothing recorded yet, or a fast
+   * under way, neither counts nor breaks the run. Only a fast that ENDED short
+   * breaks it, because reporting a streak the day just ended is the one thing a
+   * streak must never do.
    */
   function currentStreak(fasts, now) {
-    const today = startOfLocalDay(now || Date.now());
-    const metByDay = fastsByDay(fasts.filter(metGoal));
-    const anyByDay = fastsByDay(fasts);
-
-    let cursor;
-    if (metByDay.has(today)) {
-      cursor = today;
-    } else if (anyByDay.has(today)) {
-      // Today was fasted and fell short. That breaks the streak - treating it
-      // the same as "nothing recorded yet" would report a streak that the day
-      // just ended, which is the one thing a streak must never do.
-      return 0;
-    } else {
-      cursor = today - DAY_MS;
-    }
+    const when = now || Date.now();
+    const today = startOfLocalDay(when);
+    const byDay = fastsByDay(fasts, when);
 
     let streak = 0;
-    while (metByDay.has(cursor)) {
+    const todayEntry = byDay.get(today);
+    if (todayEntry && todayEntry.met) {
       streak += 1;
-      cursor -= DAY_MS;
+    } else if (todayEntry && !todayEntry.pending) {
+      return 0;
+    }
+
+    let cursor = previousLocalDay(today);
+    for (;;) {
+      const entry = byDay.get(cursor);
+      if (entry && entry.met) {
+        streak += 1;
+      } else if (!entry || !entry.pending) {
+        // Nothing that day, or only a fast that fell short: the run ends here.
+        break;
+      }
+      // A pending day is stepped over - the fast that began it is still going.
+      cursor = previousLocalDay(cursor);
     }
     return streak;
   }
@@ -1481,7 +1513,7 @@
 
     return {
       total: done.length,
-      streak: currentStreak(done, when),
+      streak: currentStreak(appState.fasts, when),
       goalRate: done.length ? Math.round((met / done.length) * 100) : null,
       average30: averageMs(last30),
       longest: done.length ? longest : null,
@@ -1548,8 +1580,12 @@
     const today = startOfLocalDay(now || Date.now());
     // Monday of the current week. getDay() is 0 for Sunday, so shift it.
     const weekday = (new Date(today).getDay() + 6) % 7;
-    const thisMonday = today - weekday * DAY_MS;
-    const firstMonday = thisMonday - (HEAT_WEEKS - 1) * DAY_MS * 7;
+    const base = new Date(today);
+    const thisMonday = new Date(
+      base.getFullYear(), base.getMonth(), base.getDate() - weekday).getTime();
+    const mon = new Date(thisMonday);
+    const firstMonday = new Date(mon.getFullYear(), mon.getMonth(),
+      mon.getDate() - (HEAT_WEEKS - 1) * DAYS_PER_WEEK).getTime();
 
     const levels = [];
     for (let w = 0; w < HEAT_WEEKS; w++) {
@@ -1759,6 +1795,7 @@
     heatLevel,
     startOfLocalDay,
     fastsByDay,
+    previousLocalDay,
     fastingHoursByDay,
     renderStats,
     DataManager,

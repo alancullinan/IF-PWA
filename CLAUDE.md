@@ -118,8 +118,10 @@ UTC-shaped bug cannot hide behind the test environment's timezone.
 
 Two attributions exist deliberately, and they must not be merged:
 
-- `fastsByDay()` credits a whole fast to its start day. One fast belongs to one
-  day, which is what streaks, goal rates and averages mean.
+- `fastsByDay(fasts, now)` credits a whole fast to its start day. One fast
+  belongs to one day, which is what streaks, goal rates and averages mean. It
+  takes `now` because a running fast has to be measured against something, and
+  it reports three states per day — see the streak rule below.
 - `fastingHoursByDay()` splits a fast at each local midnight, and only the
   heatmap uses it. The start-day rule cannot draw a chart of hours: a 30h fast
   credited 30 hours to a single day, which is not a quantity a day can hold, and
@@ -130,6 +132,36 @@ Splitting costs nothing in the normal case: a daily routine gives every day the
 tail of one fast plus the start of the next, so a steady 16:8 still reads a full
 16h per day either way. That equivalence is what settled the choice, and
 `test/stats.test.js` pins it.
+
+### A day has three states in a streak, not two.
+
+Met, failed, and **pending**. The third is the one that was missing, and the
+streak read 0 for most of every day because of it.
+
+Past midnight, "yesterday" is the day the currently running fast *started*, and
+that day holds no completed fast. `currentStreak()` was passed only completed
+fasts, so the walk back stopped on step one: with an evening-start 18:6 the
+streak collapsed at midnight and only came right after the fast was broken —
+wrong for the whole waking day, right for the few hours nobody looks. So a day
+whose fast is still running has neither met its goal nor failed; it is stepped
+over. Only a fast that *ended* short breaks the run. A running fast counts as
+met the moment it passes its goal, without waiting to be stopped.
+
+Today is likewise allowed to be unfinished — nothing recorded yet, or a fast
+under way — and neither counts nor breaks the run.
+
+`test/stats.test.js` checks six points around a single day, because the two the
+old rule got right (evening, and after breaking the fast) are exactly the two
+you would think to check.
+
+### Step between days through the `Date` constructor, never by 24h.
+
+A local day is 23 or 25 hours long across a clock change, so `ts - DAY_MS` from
+a local midnight lands at 01:00 or 23:00 on the day before and every lookup
+keyed on a midnight misses. `previousLocalDay()` goes through
+`new Date(y, m, d - 1)` instead. Ireland changes clocks in late March and late
+October, so the streak would have ended at the change twice a year, and the
+heatmap's week arithmetic had the same flaw.
 
 ### Share sheet: `files` only, and a dismissal is not a backup.
 
